@@ -4,7 +4,7 @@ import requests
 import time
 import uuid
 
-from decimal import Decimal, getcontext
+from decimal import ROUND_DOWN, Decimal, getcontext
 
 import pandas as pd
 
@@ -34,7 +34,8 @@ headers = {
 }
 
 def american_to_decimal(american_odds):
-    getcontext().prec = 3
+    getcontext().prec = 4
+    getcontext().rounding = ROUND_DOWN
     if american_odds == 0:
         return 1.0
     if american_odds > 0:

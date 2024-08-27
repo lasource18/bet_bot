@@ -17,6 +17,7 @@ CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
 HIST_DATA_PATH = os.environ['HIST_DATA_PATH']
 
 leagues = {'E0': '39', 'T1': '203', 'B1': '78', 'L1': '61', 'P1': '94'}
+pinnacle_ids = {'E0': '1980', 'T1': '2592', 'B1': '1842', 'L1': '2036', 'P1': '2386'}
 
 today = datetime.now()
 
@@ -43,27 +44,40 @@ def main():
 
             getcontext().prec = 3
 
+            betting_bot_factory = BettingBotFactory()
+            betting_bot = betting_bot_factory.select_betting_bot(credentials[bookmaker]['username'], credentials[bookmaker]['password'], bookmaker)
+            betting_bot.login(credentials['username'], credentials['password'])
+
             for league, league_id in leagues.items():
                 fetch_upcoming_games(league_id, today, season)
                 data = fetch_hist_data(os.path.join(HIST_DATA_PATH, league + '.csv'))
                 games = load_upcoming_games(today, config[league]['name'])
 
+                games_url = betting_bot.get_game_urls(pinnacle_ids[league])
+
                 for game in games:
                     strategy_factory = StrategyFactory()
-                    betting_bot_factory = BettingBotFactory()
-                    betting_bot = betting_bot_factory.select_betting_bot(credentials[bookmaker]['username'], credentials[bookmaker]['password'], bookmaker)
-                    # Fetch bookie odds
-                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game['home_team'], game['away_team'], game['game_date'])
+                    
+                    game_url = filter(lambda game_: game_['home']==game['home_team'], games_url)[0]
+                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url)
                     home_proba, draw_proba, away_proba = float(Decimal(1) / Decimal(home_odds*100)), float(Decimal(1) / Decimal(draw_odds*100)), float(Decimal(1) / Decimal(away_odds*100))
                     values = strategy_factory.get_values(betting_strategy, game['home_team'], game['away_team'], data, league, staking_strategy, config[league]['bankroll'], home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds)
-
-                    if values['stake'] * home_odds > 1 and values['bet'] == 'home':
-                        betting_bot.place_bet(game['home_team'], game['away_team'], today, game['home_team'], values['stake'])
-                        status = 'PLACED'
-                    elif values['home'] != 'home':
-                        status = 'NOT A HOME GAME'
-                    else:
-                        status = 'STAKE TOO LOW'
+                    
+                    match bookmaker:
+                        case 'pinnacle':
+                            if values['stake'] * home_odds > 1 and values['bet'] == 'home':
+                                curr_bal = betting_bot.check_balance() 
+                                if curr_bal > values['stake']:
+                                    betting_bot.place_bet(home_odds, values['stake'], 'home', game_url)
+                                    status = 'PLACED'
+                                else:
+                                    raise ValueError(f"Balance of {curr_bal} too low for stake {values['stake']}")
+                            elif values['home'] != 'home':
+                                status = 'NOT A HOME GAME'
+                            else:
+                                status = 'STAKE TOO LOW'
+                        case _:
+                            raise ValueError('Unkown bookmaker chosen.')
 
                     pre_computed_values = [
                         game['game_id'], 
@@ -88,7 +102,7 @@ def main():
 
                     config[league]['bankroll'] = config[league]['bankroll'] - values['stake']
 
-                    additional_values = [status, None, None, config[league]['bankroll']]
+                    additional_values = [status, None, None, config[league]['bankroll'], betting_strategy]
 
                     final_values = pre_computed_values + list(values.values()) + additional_values
                     final_values = tuple(final_values)

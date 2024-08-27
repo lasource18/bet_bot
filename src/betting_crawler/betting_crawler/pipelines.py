@@ -9,6 +9,16 @@ from itemadapter import ItemAdapter
 from scrapy.pipelines.files import FilesPipeline
 import zipfile
 import os
+from dotenv import load_dotenv
+
+import sys
+sys.path.append('/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/utils')
+
+from utils.utils import read_config
+
+load_dotenv(override=True)
+
+MATCH_RATING_CONFIG_FILE = os.environ['MATCH_RATING_CONFIG_FILE']
 
 class BettingCrawlerPipeline:
     def __init__(self, hist_data_dir) -> None:
@@ -31,6 +41,7 @@ class BettingCrawlerPipeline:
     
 class HistoricalDataPipeline(FilesPipeline):
     def file_path(self, request, response=None, info=None, *, item=None):
-        date = request.url.split("/")[-2]
-        filename = f"data{date}.zip"
+        config = read_config(MATCH_RATING_CONFIG_FILE)
+        # date = request.url.split("/")[-2]
+        filename = f"data{config['season']}.zip"
         return filename

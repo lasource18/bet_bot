@@ -66,6 +66,7 @@ cursor.execute("""
                result TEXT NULL,
                gl REAL NULL,
                bk REAL NOT NULL,
+               strategy TEXT NOT NULL,
                created_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime'),
                updated_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime')
                );

@@ -2,8 +2,11 @@
 betting.db
 historical_data/*
 venv/
+response/
 tests/*
+misc*
 *__pycache__*
 *.cpython*
 *.json
 *.jsonl
+*.DS_Store*
