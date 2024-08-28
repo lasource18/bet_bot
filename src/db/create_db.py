@@ -31,7 +31,8 @@ cursor.execute("""
                home_team TEXT NOT NULL, 
                away_team TEXT NOT NULL,
                season TEXT NOT NULL, 
-               league TEXT NOT NULL, 
+               league_name TEXT NOT NULL, 
+               league_code TEXT NOT NULL, 
                round TEXT NOT NULL,
                fthg TEXT NULL,
                ftag TEXT NULL,
@@ -65,7 +66,6 @@ cursor.execute("""
                status TEXT NOT NULL,
                result TEXT NULL,
                gl REAL NULL,
-               bk REAL NOT NULL,
                strategy TEXT NOT NULL,
                created_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime'),
                updated_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime')

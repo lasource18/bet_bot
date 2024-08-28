@@ -2,6 +2,8 @@ import json
 import os
 import requests
 import time
+import csv
+from datetime import datetime, timedelta
 import uuid
 
 from decimal import ROUND_DOWN, Decimal, getcontext
@@ -64,6 +66,17 @@ def read_config(file_path: str):
 def update_config(obj: dict, file_path: str):
     json.dump(obj, file_path)
 
+def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
+    file_exists = os.path.isfile(file_path)
+    with open(file_path, 'a') as file:
+        writer = csv.DictWriter(file, fieldnames=['date', 'bankroll'])
+
+        if not file_exists:
+            writer.writeheader()
+            writer.writerow({'date': (date-timedelta(1)).strftime('%Y-%m-%d'), 'bankroll': starting_bk})
+
+        writer.writerow({'date': date.strftime('%Y-%m-%d'), 'bankroll': bk})
+
 def fetch_hist_data(file_path: str):
     df = pd.read_csv(file_path, header=0)
     return df
@@ -101,4 +114,8 @@ def load_upcoming_games(*args):
 def insert_new_bets(bets):
     q = configs.get('INSERT_INTO_BETS')
     execute_many(q, bets)
+
+def settle_bets(date, league):
+    q = configs.get('SELECT_BETS_TO_SETTLE_FROM_BETS').data
+    pass
 

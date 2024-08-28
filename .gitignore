@@ -2,7 +2,8 @@
 betting.db
 historical_data/*
 venv/
-response/
+logs/
+reports/*
 tests/*
 misc*
 *__pycache__*

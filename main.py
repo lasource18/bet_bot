@@ -2,15 +2,16 @@ import sys
 import subprocess
 import os
 import re
-from dotenv import load_dotenv
-from datetime import datetime
+import csv
+from datetime import datetime, timedelta
 from decimal import getcontext, Decimal
 
+from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from bot.betting_bot_factory import BettingBotFactory
 from strategies.strategy_factory import StrategyFactory
-from utils.utils import MATCH_RATINGS_PATTERN, calculate_vig, fetch_hist_data, fetch_upcoming_games, insert_new_bets, load_upcoming_games, read_config, update_config
+from utils.utils import MATCH_RATINGS_PATTERN, calculate_vig, fetch_hist_data, fetch_upcoming_games, insert_new_bets, load_upcoming_games, read_config, record_bankroll, update_config
 
 MATCH_RATING_CONFIG_FILE = os.environ['MATCH_RATING_CONFIG_FILE']
 CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
@@ -36,7 +37,6 @@ def main():
             config = read_config(MATCH_RATING_CONFIG_FILE)
             credentials = read_config(CREDENTIALS_FILE)
 
-            leagues = config['leagues']
             season = config['season']
 
             bets = []
@@ -48,12 +48,17 @@ def main():
             betting_bot = betting_bot_factory.select_betting_bot(credentials[bookmaker]['username'], credentials[bookmaker]['password'], bookmaker)
             betting_bot.login(credentials['username'], credentials['password'])
 
+            consolidated = 0
+
             for league, league_id in leagues.items():
                 fetch_upcoming_games(league_id, today, season)
                 data = fetch_hist_data(os.path.join(HIST_DATA_PATH, league + '.csv'))
                 games = load_upcoming_games(today, config[league]['name'])
 
                 games_url = betting_bot.get_game_urls(pinnacle_ids[league])
+
+                starting_bk = config[league]['bankroll']
+                consolidated_starting += starting_bk
 
                 for game in games:
                     strategy_factory = StrategyFactory()
@@ -85,6 +90,7 @@ def main():
                         game['home_team'], 
                         game['away_team'], 
                         season, 
+                        config[league]['name'],
                         league, 
                         game['round'],
                         None,
@@ -100,15 +106,22 @@ def main():
                         float(Decimal(calculate_vig(home_proba, draw_proba, away_proba))*100)
                     ]
 
-                    config[league]['bankroll'] = config[league]['bankroll'] - values['stake']
-
-                    additional_values = [status, None, None, config[league]['bankroll'], betting_strategy]
+                    additional_values = [status, None, None, betting_strategy]
 
                     final_values = pre_computed_values + list(values.values()) + additional_values
                     final_values = tuple(final_values)
                     bets.append(final_values)
 
+                    config[league]['bankroll'] = config[league]['bankroll'] - values['stake']
+                    consolidated -= values['stake']
+
                 update_config(config, MATCH_RATING_CONFIG_FILE)
+
+                file_path = f'./bankroll/{season}/{league}_bankroll.csv'
+                record_bankroll(starting_bk, config[league]['bankroll'], file_path, today)
+
+            file_path = f'./bankroll/{season}/Consolidated_bankroll.csv'
+            record_bankroll(consolidated_starting, consolidated_starting-consolidated, file_path, today)
             insert_new_bets(bets)
 
     except Exception as e:
