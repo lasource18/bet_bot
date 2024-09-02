@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 import json
+import math
+import random
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -14,11 +16,12 @@ from utils.utils import american_to_decimal, generate_uuid
 load_dotenv(override=True)
 
 PINNACLE_TRUST_CODE = os.environ['PINNACLE_TRUST_CODE']
+PINNACLE_GUEST_API = os.environ['PINNACLE_GUEST_API']
 PINNACLE_API = os.environ['PINNACLE_API']
 
 class PinnacleBettingBot(BettingBot):
     def __init__(self):
-        super().__init__(PINNACLE_API)
+        super().__init__(PINNACLE_GUEST_API)
         self.headers = {
             'Content-Type': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -27,11 +30,12 @@ class PinnacleBettingBot(BettingBot):
             'x-device-uuid': '2d48ff69-f28214f0-be75ed89-e341243e'
         }
     
-    def login(self, username, password):
+    def login(self, credentials, logger, **kwargs):
+        today = kwargs.get('today', generate_uuid())
         login_url = f"{self.base_url}/sessions"
         payload = {
-            'username': username,
-            'password': password,
+            'username': credentials['username'],
+            'password': credentials['password'],
             'trustCode': PINNACLE_TRUST_CODE,
             'geolocation': ''
         }
@@ -40,53 +44,54 @@ class PinnacleBettingBot(BettingBot):
         try:
             response = self.session.post(login_url, data=payload, headers=self.headers)
             data = response.json()
-            with open('src/responses/login.json', 'w') as f:
+            with open(f'src/responses/login_{today}.json', 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
             self.headers['X-Session'] = data.get('token', '')
             self.base_url = PINNACLE_API
         except requests.HTTPError as http_err:
-            print(f"Login failed | HTTP error occurred: {http_err} ")
+            logger.error(f"Login failed | HTTP error occurred: {http_err}")
         except RetryError as err:
-            print(f"Login failed | Retry Error: {err}")
+            logger.error(f"Login failed | Retry Error: {err}")
         except Exception as err:
-            print(f"login(): Other error occurred: {err.with_traceback()}")
+            logger.error(f"login(): Other error occurred: {err}")
         else:
-            print("Login successful")
             return True
     
-    def check_balance(self):
+    def check_balance(self, logger, **kwargs):
+        today = kwargs.get('today', generate_uuid())
         balance_url = f"{self.base_url}/wallet/balance"
         response = self.session.get(balance_url, headers=self.headers)
-        balance = 0.0
+        balance = 0
 
         try:
             data = response.json()
-            with open('src/responses/check_balance.json', 'w') as f:
+            with open(f'src/responses/check_balance_{today}.json', 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
             balance = float(data['amount'])
         except requests.HTTPError as http_err:
-            print(f"Failed to check balance | HTTP error occurred: {http_err} ")
+            logger.error(f"Failed to check balance | HTTP error occurred: {http_err} ")
         except RetryError as err:
-            print(f"Failed to check balance | Retry Error: {err}")
+            logger.error(f"Failed to check balance | Retry Error: {err}")
         except Exception as err:
-            print(f"check_balance(): Other error occurred: {err.with_traceback()}")
+            logger.error(f"check_balance(): Other error occurred: {err}")
         finally:
+            logger.info(f'Current balance: {balance}')
             return balance
     
-    def get_game_urls(self, league):
+    def get_game_urls(self, league, logger, **kwargs):
         try:
+            today = kwargs.get('today', generate_uuid())
             params = {'brandId': 0}
             response = self.session.get(f'{self.base_url}/leagues/{league}/matchups', headers=self.headers, params=params)
             data = response.json()
-            with open('src/responses/get_game_urls.json', 'w') as f:
+            with open(f'src/responses/get_game_urls_{league}_{today}.json', 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
-            today = (datetime.now()+timedelta(1)).strftime('%Y-%m-%d')
 
             games = [value['parent'] for value in data]
             games = [game for game in games if game is not None]
@@ -96,22 +101,27 @@ class PinnacleBettingBot(BettingBot):
             games_filtered = list(unique_games.values())
             games_urls  =[{'id': game['id'], 'startTime': game['startTime'], 'url': f"{self.base_url}/matchups/{game['id']}/markets/related/straight", 'home': game['participants'][0]['name'], 'away': game['participants'][1]['name']} for game in games_filtered]
         except requests.HTTPError as http_err:
-            print(f"Failed to retrieve games for {today} | HTTP error occurred: {http_err} ")
+            logger.error(f"Failed to retrieve games for date {today} | HTTP error occurred: {http_err} ")
             return []
         except RetryError as err:
-            print(f"Failed to retrieve games for {today} | Retry Error: {err}")
+            logger.error(f"Failed to retrieve games for date {today} | Retry Error: {err}")
             return []
         except Exception as err:
-            print(f"get_game_urls(): Other error occurred: {err.with_traceback()}")
+            logger.error(f"get_game_urls(): Other error occurred: {err}")
             return []
         else:
+            logger.info(f'Games urls: {games_urls}')
             return games_urls
         
-    def check_odds(self, url):
+    def check_odds(self, url, logger, **kwargs):
         try:
+            odds = 0
+            today = kwargs.get('today', generate_uuid())
+            game_id = kwargs.get('game_id', random.randint(0, 999_999))
+
             response = self.session.get(url, headers=self.headers)
             data = response.json()
-            with open('src/responses/check_odds.json', 'w') as f:
+            with open(f'src/responses/check_odds_{game_id}_{today}.json', 'w') as f:
                 json.dump(data, f)
             
             response.raise_for_status()
@@ -121,23 +131,65 @@ class PinnacleBettingBot(BettingBot):
             straight_market = {market['designation']: american_to_decimal(market['price']) for market in straight_market}
             odds = float(straight_market['home']), float(straight_market['draw']), float(straight_market['away'])
         except requests.HTTPError as http_err:
-            print(f"Failed to retrieve the odds | HTTP error occurred: {http_err} ")
+            logger.error(f"Failed to retrieve the odds | HTTP error occurred: {http_err} ")
         except RetryError as err:
-            print(f"Failed to retrieve the odds | Retry Error: {err}")
+            logger.error(f"Failed to retrieve the odds | Retry Error: {err}")
         except Exception as err:
-            print(f"check_odds(): Other error occurred: {err.with_traceback()}")
+            logger.error(f"check_odds(): Other error occurred: {err}")
         else:
             return odds
-        
-    def place_bet(self, odds, stake, outcome, game_info):
+    
+    def get_max_min_stake(self, game_info, selection, odds, logger, **kwargs):
         try:
-            # odds = self.check_odds(odds_url)
-            if not odds:
-                print("Unable to place bet - odds not found")
-                return False
+            logger = kwargs['logger']
+            today = kwargs.get('today', generate_uuid())
 
-            if odds * stake - stake < .41 or stake < .41:
-                print(f"Stake of {stake} too low, can't place bet on {game_info['home']} - {game_info['away']}")
+            url = f"{self.base_url}/bets/straight/quote"
+            payload = {
+                        "oddsFormat": "decimal", 
+                       "selections":[
+                           {"matchupId": game_info['id'],
+                            "marketKey":"s;0;m",
+                            "designation": selection,
+                            "price": odds}]
+                        }
+            payload = json.dumps(payload)
+            response = self.session.post(url, data=payload, headers=self.headers)
+            data = response.json()
+            with open(f'src/responses/get_min_stake_{game_info['id']}_{today}.json', 'w') as f:
+                json.dump(data, f)
+
+            min_stake = 0
+            max_stake = 10_000
+            
+            response.raise_for_status()
+
+            limits = data['limits']
+            for limit in limits:
+                if limit['type'] == 'minRiskStake':
+                    min_stake = float(limit['amount'])
+                elif limit['type'] == 'maxRiskStake':
+                    max_stake = float(limit['amount'])
+        except requests.HTTPError as http_err:
+            logger.error(f"Failed to get minimum stake | HTTP error occurred: {http_err}")
+        except RetryError as err:
+            logger.error(f"Failed to get minimum stake | Retry Error: {err}")
+        except Exception as err:
+            logger.error(f"get_min_stake(): Other error occurred: {err}")
+        else:
+            logger.info(f"Minimum stake for game {game_info['home']} - {game_info['away']}: {min_stake}")
+            return min_stake, max_stake
+        
+    def place_bet(self, odds, stake, outcome, game_info, min_stake, logger, **kwargs):
+        try:
+            today = kwargs.get('today', generate_uuid())
+            # odds = self.check_odds(odds_url)
+            # if not odds:
+            #     print("Unable to place bet - odds not found")
+            #     return False
+
+            if stake < min_stake:
+                logger.info(f"Stake of {stake} too low, can't place bet on {game_info['home']} - {game_info['away']}")
                 return False
 
             bet_url = f"{self.base_url}/bets/straight"
@@ -161,17 +213,17 @@ class PinnacleBettingBot(BettingBot):
             payload = json.dumps(payload)
             response = self.session.post(bet_url, data=payload, headers=self.headers)
             data = response.json()
-            with open('src/responses/place_bet.json', 'w') as f:
+            with open(f"src/responses/place_bet_{game_info['id']}_{today}.json", 'w') as f:
                 json.dump(data, f)
             
             response.raise_for_status()
         except requests.HTTPError as http_err:
-            print(f"Failed to place bet | HTTP error occurred: {http_err}")
+            logger.error(f"Failed to place bet | HTTP error occurred: {http_err}")
         except RetryError as err:
-            print(f"Failed to place bet | Retry Error: {err}")
+            logger.error(f"Failed to place bet | Retry Error: {err}")
         except Exception as err:
-            print(f"place_bet(): Other error occurred: {err.with_traceback()}")
+            logger.error(f"place_bet(): Other error occurred: {err}")
         else:
-            print(f"Bet placed successfully: {outcome} for {game_info['home']} - {game_info['away']}")
+            logger.info(f"Bet placed successfully: {outcome} for {game_info['home']} - {game_info['away']}")
             return True
         

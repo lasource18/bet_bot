@@ -1,5 +1,5 @@
 Metadata-Version: 2.1
-Name: bet-bot
+Name: bet_bot
 Version: 0.0.1
 Summary: An automated betting bot.
 Author: lasource18
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities

@@ -14,6 +14,8 @@ src/db/create_db.py
 src/db/db_utils.py
 src/db/drop_db.py
 src/helpers/__init__.py
+src/helpers/logger.py
+src/helpers/send_email.py
 src/helpers/session.py
 src/staking/__init__.py
 src/staking/kelly_staking.py

@@ -22,10 +22,13 @@ def load_many(query, *args):
         rows = cursor.fetchall()
     return rows
 
-def execute(query, data):
+def execute(query, data=None):
     with sqlite3.connect(DB_FILE) as con:
         cursor = con.cursor()
-        cursor.execute(query, data)
+        if data:
+            cursor.execute(query, data)
+        else:
+            cursor.execute(query)
         con.commit()
 
 def execute_many(query, data):

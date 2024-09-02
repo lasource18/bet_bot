@@ -1,10 +1,8 @@
 from abc import abstractmethod
 
+from logging import Logger
 import time
 import random
-
-import sys
-sys.path.append()
 
 from helpers.session import SessionManager
 
@@ -15,23 +13,27 @@ class BettingBot:
         self.session = self.session_manager.get_session()
 
     @abstractmethod
-    def login(self, username, password):
+    def login(self, credentials, logger: Logger, **kwargs):
         raise NotImplementedError('Method is required!')
 
     @abstractmethod
-    def check_balance(self):
+    def check_balance(self, logger: Logger, **kwargs):
         raise NotImplementedError('Method is required!')
     
     @abstractmethod
-    def get_game_urls(self, league, **params):
+    def get_game_urls(self, league, logger: Logger, **kwargs):
         raise NotImplementedError('Method is required!')
 
     @abstractmethod
-    def check_odds(self, url):
+    def check_odds(self, url, logger: Logger, **kwargs):
+        raise NotImplementedError('Method is required!')
+    
+    @abstractmethod
+    def get_max_min_stake(self, game_info, selection, odds, logger, **kwargs):
         raise NotImplementedError('Method is required!')
 
     @abstractmethod
-    def place_bet(self, odds, stake, outcome, game_info):
+    def place_bet(self, odds, stake, outcome, game_info, logger: Logger, **kwargs):
         raise NotImplementedError('Method is required!')
 
     def simulate_human_behavior(self):

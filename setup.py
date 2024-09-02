@@ -51,6 +51,7 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         # uncomment if you test on these interpreters:
@@ -76,12 +77,10 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'db_utils = db.db_utils:main',
-            'session = helpers.session:main',
-            'utils = utils.utils:main',
-            'staking_factory = staking.staking_factory:main',
-            'betting_bot_factory = bot.betting_bot_factory:main',
-            'strategy_factory = strategies.strategy_factory:main',
+            'session = helpers.session:get_session',
+            'staking_factory = staking.staking_factory:get_stake',
+            'betting_bot_factory = bot.betting_bot_factory:select_betting_bot',
+            'strategy_factory = strategies.strategy_factory:select_strategy',
         ]
     },
 )

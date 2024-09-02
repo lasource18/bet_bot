@@ -1,7 +1,5 @@
 [console_scripts]
-betting_bot_factory = bot.betting_bot_factory:main
-db_utils = db.db_utils:main
-session = helpers.session:main
-staking_factory = staking.staking_factory:main
-strategy_factory = strategies.strategy_factory:main
-utils = utils.utils:main
+betting_bot_factory = bot.betting_bot_factory:select_betting_bot
+session = helpers.session:get_session
+staking_factory = staking.staking_factory:get_stake
+strategy_factory = strategies.strategy_factory:select_strategy

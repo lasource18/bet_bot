@@ -1,43 +1,69 @@
 import sys
 import subprocess
 import os
-import re
 import csv
 from datetime import datetime, timedelta
 from decimal import getcontext, Decimal
 
+from jproperties import Properties
+
 from dotenv import load_dotenv
+
+from helpers.send_email import send_email
+from helpers.logger import setup_logger
 load_dotenv(override=True)
 
 from bot.betting_bot_factory import BettingBotFactory
 from strategies.strategy_factory import StrategyFactory
-from utils.utils import MATCH_RATINGS_PATTERN, calculate_vig, fetch_hist_data, fetch_upcoming_games, insert_new_bets, load_upcoming_games, read_config, record_bankroll, update_config
+from utils.utils import calculate_vig, fetch_hist_data, fetch_upcoming_games, execute_many, load_many, read_config, record_bankroll, update_config
 
-MATCH_RATING_CONFIG_FILE = os.environ['MATCH_RATING_CONFIG_FILE']
+CONFIG_FILE = os.environ['CONFIG_FILE']
 CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
 HIST_DATA_PATH = os.environ['HIST_DATA_PATH']
+SQL_PROPERTIES = os.environ['SQL_PROPERTIES']
+LOGS = os.environ['LOGS']
 
-leagues = {'E0': '39', 'T1': '203', 'B1': '78', 'L1': '61', 'P1': '94'}
-pinnacle_ids = {'E0': '1980', 'T1': '2592', 'B1': '1842', 'L1': '2036', 'P1': '2386'}
+configs = Properties()
+with open(SQL_PROPERTIES, 'rb') as config_file:
+    configs.load(config_file)
 
-today = datetime.now()
+insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data
+load_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data
+
+strategies_list = ['match_ratings']
+
+today = datetime.now().strftime('%Y-%m-%d')
 
 def main():
     try:
-        betting_strategy = sys.argv[1].lower()
-        staking_strategy = sys.argv[2].lower()
-        bookmaker = sys.argv[3].lower()
+        args = sys.argv
+        betting_strategy = args[1].lower()
+        staking_strategy = args[2].lower()
+        bookmaker = args[3].lower()
 
-        if re.match(MATCH_RATINGS_PATTERN, betting_strategy):
-            process = subprocess.run(['./venv/bin/scrapy crawl', 'historical_data'], shell=True, capture_output=True, text=True)
+        if betting_strategy in strategies_list:
+            # process = subprocess.run(['./venv/bin/scrapy crawl', 'historical_data'], shell=True, capture_output=True, text=True)
 
-            if process.returncode != 0:
-                raise OSError('Sorry scrapy is not installed.')
+            # if process.returncode != 0:
+            #     raise OSError('Sorry scrapy is not installed.')
+        
+            config = read_config(CONFIG_FILE)
+            leagues = config['leagues']
+
+            if bookmaker == 'pinnacle':
+                bookmaker_ids = config['pinnacle_ids']
+            else:
+                raise ValueError('Unknown bookmaker chosen.')
             
-            config = read_config(MATCH_RATING_CONFIG_FILE)
+            season = config['season']
+
+            logger = setup_logger('main', f'{LOGS}/{betting_strategy}/{season}/{today}_main.log')
+
+            logger.info(f'Starting bet_bot:main: {args[0]} {args[1:]}')
+
             credentials = read_config(CREDENTIALS_FILE)
 
-            season = config['season']
+            logger.info(f'Config: Leagues: {leagues} | Season: {season}')
 
             bets = []
             status = 'FAILED'
@@ -45,87 +71,154 @@ def main():
             getcontext().prec = 3
 
             betting_bot_factory = BettingBotFactory()
-            betting_bot = betting_bot_factory.select_betting_bot(credentials[bookmaker]['username'], credentials[bookmaker]['password'], bookmaker)
-            betting_bot.login(credentials['username'], credentials['password'])
+            betting_bot = betting_bot_factory.select_betting_bot(bookmaker)
+            logged_in = betting_bot.login(credentials, logger, today=today)
+
+            if not logged_in:
+                raise Exception(f'Unable to log into {bookmaker} account.')
+            
+            logger.info(f'Succesfully logged into {bookmaker}')
+
+            strategy_factory = StrategyFactory()
+
+            config_path = strategy_factory.get_config(betting_strategy)
+            strat_config = read_config(config_path)
 
             consolidated = 0
 
+            select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data
+
+            subject = f'Bets for {today} with {betting_strategy} strategy with {bookmaker}'
+            messages = []
+
             for league, league_id in leagues.items():
                 fetch_upcoming_games(league_id, today, season)
-                data = fetch_hist_data(os.path.join(HIST_DATA_PATH, league + '.csv'))
-                games = load_upcoming_games(today, config[league]['name'])
+                data = fetch_hist_data(os.path.join(HIST_DATA_PATH, f'{season}/{league}.csv'))
 
-                games_url = betting_bot.get_game_urls(pinnacle_ids[league])
+                if len(data) == 0:
+                    raise ValueError(f'Failed to retrieve historical data for {league}.')
+                
+                messages.append(f"{strat_config[league]}")
+                messages.append(f"{'-' * (len(strat_config[league])+1)}\n\n")
+                
+                games = load_many(select_upcoming_games_query, today, league)
+                games_headlines = '\n'.join([f"{game['home_team']} - {game['away_team']}" for game in games])
+                logger.info(f'Games for {league} on {today}: \n{games_headlines}')
 
-                starting_bk = config[league]['bankroll']
+                betting_bot.simulate_human_behavior()
+                games_url = betting_bot.get_game_urls(bookmaker_ids[league], logger, today=today, logger=logger)
+
+                starting_bk = strat_config[league]['bankroll']
+
+                messages.append(f"{strat_config[league]} starting bankroll: {starting_bk}\n\n")
+
+                logger.info(f"Starting bankroll for {strat_config[league]['name']}: ${starting_bk}")
                 consolidated_starting += starting_bk
 
                 for game in games:
-                    strategy_factory = StrategyFactory()
+                    game_url = filter(lambda game_: game_['home']==game['home_team'] and game_['away']==game['away_team'], games_url)[0]
+                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, today=today)
+                    logger.info(f'{bookmaker} odds for {game['home']} - {game['away']}: H: {home_odds} | D: {draw_odds} | A: {away_odds}')
+
+                    home_proba, draw_proba, away_proba = float((Decimal(1) / Decimal(home_odds))*100), float((Decimal(1) / Decimal(draw_odds))*100), float((Decimal(1) / Decimal(away_odds))*100)
+                    logger.info(f'{bookmaker} implied proba {game['home']} - {game['away']}: H: {home_proba} | D: {draw_proba} | A: {away_proba}')
+
+                    vig = float(Decimal(calculate_vig(home_proba, draw_proba, away_proba))*100)
+                    logger.info(f'{bookmaker} vig {game['home']} - {game['away']}: {vig}%')
+
+                    strategy = strategy_factory.select_strategy(betting_strategy, data, league, staking_strategy, strat_config, home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds)
                     
-                    game_url = filter(lambda game_: game_['home']==game['home_team'], games_url)[0]
-                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url)
-                    home_proba, draw_proba, away_proba = float(Decimal(1) / Decimal(home_odds*100)), float(Decimal(1) / Decimal(draw_odds*100)), float(Decimal(1) / Decimal(away_odds*100))
-                    values = strategy_factory.get_values(betting_strategy, game['home_team'], game['away_team'], data, league, staking_strategy, config[league]['bankroll'], home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds)
+                    try:
+                        values = strategy.compute(game['home_team'], game['away_team'], betting_strategy, logger)
+                    except ValueError as err:
+                        logger.error(err)
+                        break
                     
                     match bookmaker:
                         case 'pinnacle':
-                            if values['stake'] * home_odds > 1 and values['bet'] == 'home':
-                                curr_bal = betting_bot.check_balance() 
+                            min_stake, max_stake = betting_bot.get_max_min_stake(game_url, 'home', home_odds, logger, today=today)
+                            if values['bet'] == 'home' and (min_stake <= values['stake']):
+                                betting_bot.simulate_human_behavior() 
+                                curr_bal = betting_bot.check_balance(logger, today=today) 
                                 if curr_bal > values['stake']:
-                                    betting_bot.place_bet(home_odds, values['stake'], 'home', game_url)
-                                    status = 'PLACED'
+                                    betting_bot.simulate_human_behavior()
+
+                                    if values['stake'] > max_stake:
+                                        logger.info(f"Original stake of ${values['stake']} too high as per {bookmaker} limits. Updating to ${max_stake}")
+                                        values['stake'] = max_stake
+
+                                    success = betting_bot.place_bet(home_odds, values['stake'], 'home', game_url, min_stake, logger, today=today, game=game['game_id'])
+                                    if success:
+                                        status = 'SUCCESS'
                                 else:
-                                    raise ValueError(f"Balance of {curr_bal} too low for stake {values['stake']}")
+                                    raise ValueError(f"Balance of ${curr_bal} too low for stake ${values['stake']}")
                             elif values['home'] != 'home':
-                                status = 'NOT A HOME GAME'
+                                status = 'NOT A HOME BET'
                             else:
                                 status = 'STAKE TOO LOW'
                         case _:
-                            raise ValueError('Unkown bookmaker chosen.')
+                            raise ValueError('Unknown bookmaker chosen.')
 
                     pre_computed_values = [
                         game['game_id'], 
                         game['game_date'], 
                         game['home_team'], 
                         game['away_team'], 
-                        season, 
-                        config[league]['name'],
+                        season,
                         league, 
+                        strat_config[league]['name'],
                         game['round'],
                         None,
                         None,
                         None,
                         bookmaker,
+                        game_url['id'],
                         home_odds,
                         draw_odds,
                         away_odds,
                         home_proba,
                         draw_proba,
                         away_proba,
-                        float(Decimal(calculate_vig(home_proba, draw_proba, away_proba))*100)
+                        vig
                     ]
 
-                    additional_values = [status, None, None, betting_strategy]
+                    additional_values = [status, strat_config[league]['bankroll']]
 
                     final_values = pre_computed_values + list(values.values()) + additional_values
                     final_values = tuple(final_values)
                     bets.append(final_values)
 
-                    config[league]['bankroll'] = config[league]['bankroll'] - values['stake']
-                    consolidated -= values['stake']
+                    strat_config[league]['bankroll'] = strat_config[league]['bankroll'] - values['stake']
+                    consolidated += values['stake']
 
-                update_config(config, MATCH_RATING_CONFIG_FILE)
+                    messages.append(f"{game['home']} - {game['away']}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}")
+
+                messages.append(f"{strat_config[league]} ending bankroll: ${strat_config[league]['bankroll']}\n")
+                update_config(strat_config, config_path)
+
+                logger.info(f"Final bankroll for {strat_config[league]['name']}: ${strat_config[league]['bankroll']}")
+
+                messages.append(f"Consolidated starting bankroll: ${consolidated_starting}\n")
 
                 file_path = f'./bankroll/{season}/{league}_bankroll.csv'
-                record_bankroll(starting_bk, config[league]['bankroll'], file_path, today)
+                record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today)
+            
+            if len(bets) > 0:
+                file_path = f'./bankroll/{season}/Consolidated_bankroll.csv'
+                final_bk = consolidated_starting-consolidated
+                record_bankroll(consolidated_starting, final_bk, file_path, today)
 
-            file_path = f'./bankroll/{season}/Consolidated_bankroll.csv'
-            record_bankroll(consolidated_starting, consolidated_starting-consolidated, file_path, today)
-            insert_new_bets(bets)
+                messages.append(f"Consolidated ending bankroll: ${final_bk}\n")
+                send_email(messages, subject)
+
+                logger.info(f"Consolidated ending bankroll: ${final_bk}")
+
+                execute_many(insert_new_bets_query, bets)
 
     except Exception as e:
-        print(e)
+        logger.error(e)
+    else:
+        logger.info('Mission accomplished.')
 
 if __name__ == '__main__':
     main()
