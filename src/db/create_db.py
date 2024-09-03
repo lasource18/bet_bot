@@ -59,9 +59,9 @@ cursor.execute("""
                hv REAL NOT NULL,
                dv REAL NOT NULL,
                av REAL NOT NULL,
-               h TEXT NOT NULL,
-               d TEXT NOT NULL,
-               a TEXT NOT NULL,
+               h REAL NOT NULL,
+               d REAL NOT NULL,
+               a REAL NOT NULL,
                bet TEXT NOT NULL,
                bet_odds REAL NOT NULL,
                value REAL NOT NULL,
@@ -71,7 +71,7 @@ cursor.execute("""
                result TEXT NULL DEFAULT 'NB',
                gl REAL NULL,
                profit REAL NULL,
-               return REAL NULL,
+               yield REAL NULL,
                created_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime'),
                updated_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime')
                );

@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import json
-import math
 import random
 from zoneinfo import ZoneInfo
 
@@ -11,7 +10,7 @@ import requests
 from requests.exceptions import RetryError
 
 from bot.betting_bot import BettingBot
-from utils.utils import american_to_decimal, generate_uuid
+from utils.utils import american_to_decimal, create_dir, generate_uuid
 
 load_dotenv(override=True)
 
@@ -44,7 +43,12 @@ class PinnacleBettingBot(BettingBot):
         try:
             response = self.session.post(login_url, data=payload, headers=self.headers)
             data = response.json()
-            with open(f'src/responses/login_{today}.json', 'w') as f:
+
+            directory_path = f'src/responses/{today}/login.json'
+
+            create_dir(directory_path)
+
+            with open(directory_path, 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
@@ -67,7 +71,12 @@ class PinnacleBettingBot(BettingBot):
 
         try:
             data = response.json()
-            with open(f'src/responses/check_balance_{today}.json', 'w') as f:
+
+            directory_path = f'src/responses/{today}/check_balance.json'
+
+            create_dir(directory_path)
+
+            with open(directory_path, 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
@@ -88,7 +97,12 @@ class PinnacleBettingBot(BettingBot):
             params = {'brandId': 0}
             response = self.session.get(f'{self.base_url}/leagues/{league}/matchups', headers=self.headers, params=params)
             data = response.json()
-            with open(f'src/responses/get_game_urls_{league}_{today}.json', 'w') as f:
+
+            directory_path = f'src/responses/{today}/get_game_urls_{league}.json'
+
+            create_dir(directory_path)
+
+            with open(directory_path, 'w') as f:
                 json.dump(data, f)
 
             response.raise_for_status()
@@ -121,7 +135,11 @@ class PinnacleBettingBot(BettingBot):
 
             response = self.session.get(url, headers=self.headers)
             data = response.json()
-            with open(f'src/responses/check_odds_{game_id}_{today}.json', 'w') as f:
+
+            directory_path = f'src/responses/{today}/check_odds_{game_id}.json'
+            create_dir(directory_path)
+
+            with open(directory_path, 'w') as f:
                 json.dump(data, f)
             
             response.raise_for_status()
@@ -156,7 +174,7 @@ class PinnacleBettingBot(BettingBot):
             payload = json.dumps(payload)
             response = self.session.post(url, data=payload, headers=self.headers)
             data = response.json()
-            with open(f'src/responses/get_min_stake_{game_info['id']}_{today}.json', 'w') as f:
+            with open(f"src/responses/get_min_stake_{game_info['id']}_{today}.json", 'w') as f:
                 json.dump(data, f)
 
             min_stake = 0

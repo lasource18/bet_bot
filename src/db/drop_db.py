@@ -11,7 +11,7 @@ cursor.execute("""
                """)
 
 cursor.execute("""
-               DROP TABLE IF EXISTS bets;
+               DROP TABLE IF EXISTS match_ratings;
                """)
 
 con.commit()

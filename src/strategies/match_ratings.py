@@ -105,7 +105,8 @@ class MatchRatingsStrategy(Strategy):
             'bet': self.bet,
             'bet_odds': self.bet_odds,
             'value': self.value,
-            'stake': self.stake
+            'stake': self.stake,
+            'flag': True if self.bet == 'home' else False
         }
     
 def get_coeffs(config: dict, league: str):

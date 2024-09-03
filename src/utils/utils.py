@@ -71,6 +71,13 @@ def update_config(obj: dict, file_path: str):
     with open(file_path, 'w') as f:
         json.dump(obj, f)
 
+def create_dir(directory_path: str):
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
+        print(f"Directory '{directory_path}' created.")
+    else:
+        print(f"Directory '{directory_path}' already exists.")
+
 def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
     file_exists = os.path.isfile(file_path)
     with open(file_path, 'a') as file:

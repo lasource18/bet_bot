@@ -14,7 +14,9 @@ src/db/create_db.py
 src/db/db_utils.py
 src/db/drop_db.py
 src/helpers/__init__.py
+src/helpers/bet_settler_args_parser.py
 src/helpers/logger.py
+src/helpers/main_args_parser.py
 src/helpers/send_email.py
 src/helpers/session.py
 src/staking/__init__.py
