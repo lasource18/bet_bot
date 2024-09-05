@@ -11,6 +11,7 @@ from requests.exceptions import RetryError
 import uuid
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from dotenv import load_dotenv
 from jproperties import Properties
@@ -25,6 +26,10 @@ DB_FILE = os.environ["DB_FILE"]
 SQL_PROPERTIES = os.environ["SQL_PROPERTIES"]
 CONFIG_FILE = os.environ["CONFIG_FILE"]
 LOGS = os.environ["LOGS"]
+REPORTS_DIR = os.environ["REPORTS_DIR"]
+CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
+HIST_DATA_PATH = os.environ['HIST_DATA_PATH']
+BETTING_CRAWLER_PATH = os.environ['BETTING_CRAWLER_PATH']
 
 configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
@@ -73,10 +78,19 @@ def update_config(obj: dict, file_path: str):
 
 def create_dir(directory_path: str):
     if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
+        os.makedirs(os.path.dirname(directory_path))
         print(f"Directory '{directory_path}' created.")
     else:
         print(f"Directory '{directory_path}' already exists.")
+
+def get_files_list(path):
+    files = []
+    for root, dirs, files in os.walk(path, topdown=False):
+        # Iterate over the files in current root
+        for file_entry in files:
+            # create the relative path to the file
+            files.append(os.path.join(root, file_entry))
+    return files
 
 def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
     file_exists = os.path.isfile(file_path)
@@ -89,9 +103,33 @@ def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetim
 
         writer.writerow({'date': date.strftime('%Y-%m-%d'), 'bankroll': bk})
 
-def fetch_hist_data(file_path: str):
-    df = pd.read_csv(file_path, header=0)
+def read_csv_file(file_path: str):
+    df = pd.read_csv_file(file_path, header=0)
     return df
+
+def generate_chart(csv_file, output_file, **kwargs):
+    league = kwargs.get('league', '')
+    season = kwargs.get('league', '')
+    # Load the CSV file into a DataFrame
+    df = read_csv_file(csv_file)
+
+    # Ensure the date column is parsed as a datetime
+    df['date'] = pd.to_datetime(df['date'])
+
+    # Plot the data
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['date'], df['data'], marker='o')
+
+    # Set plot labels and title
+    plt.xlabel('Date')
+    plt.ylabel('Bankroll')
+    plt.title(f'{league} Bankroll evolution for {season}')
+
+    # Save the plot as a PNG file
+    plt.savefig(output_file)
+
+    # Close the plot to prevent it from displaying
+    plt.close()
 
 def fetch_upcoming_games(league, date, season):
     try:
@@ -129,8 +167,11 @@ def fetch_upcoming_games(league, date, season):
     else:
         execute_many(fixtures)
 
+def load_one(q, *args):
+    return db.load_one(q, args)
+
 def load_many(q, *args):
-    db.load_many(q, args)
+    return db.load_many(q, args)
 
 def execute_many(q, data):
     db.execute_many(q, data)

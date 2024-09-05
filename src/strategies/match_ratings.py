@@ -17,9 +17,9 @@ class MatchRatingsStrategy(Strategy):
     
     def __init__(self, data, league, staking_strategy, config, **kwargs) -> None:
         super(Strategy, self).__init__(data, league, staking_strategy, config)
-        self.home_odds = kwargs['home_odds']
-        self.draw_odds = kwargs['draw_odds']
-        self.away_odds = kwargs['away_odds']
+        self.home_odds = kwargs.get('home_odds', 0)
+        self.draw_odds = kwargs.get('draw_odds', 0)
+        self.away_odds = kwargs.get('away_odds', 0)
 
     def compute(self, home: str, away: str, betting_strategy, logger):
         getcontext().prec = 3
@@ -52,9 +52,9 @@ class MatchRatingsStrategy(Strategy):
         self.av = float(Decimal(self.awtp) * Decimal(self.away_odds) - 1)
 
         staking_factory = StakingFactory()
-        self.h = staking_factory.get_stake(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.home_odds, value=self.hv)
-        self.d = staking_factory.get_stake(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.draw_odds, value=self.dv)
-        self.a = staking_factory.get_stake(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.away_odds, value=self.av)
+        self.h = staking_factory.select_staking_strategy(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.home_odds, value=self.hv).compute()
+        self.d = staking_factory.select_staking_strategy(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.draw_odds, value=self.dv).compute()
+        self.a = staking_factory.select_staking_strategy(self.bankroll[self.league]['bankroll'], self.staking_strategy, odds=self.away_odds, value=self.av).compute()
         self.bet = get_value(self.possible_results, self.h, self.d, self.a)
         self.bet_odds = self.home_odds if self.bet == 'home' else (self.away_odds if self.bet == 'away' else self.draw_odds)
         self.value = max(self.hv, self.dv, self.av)
