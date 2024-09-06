@@ -30,6 +30,7 @@ REPORTS_DIR = os.environ["REPORTS_DIR"]
 CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
 HIST_DATA_PATH = os.environ['HIST_DATA_PATH']
 BETTING_CRAWLER_PATH = os.environ['BETTING_CRAWLER_PATH']
+DEVICE_UUID = os.environ['X-DEVICE-UUID']
 
 configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:

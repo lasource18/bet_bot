@@ -10,25 +10,26 @@ import requests
 from requests.exceptions import RetryError
 
 from bot.betting_bot import BettingBot
-from utils.utils import american_to_decimal, create_dir, generate_uuid
+from utils.utils import american_to_decimal, create_dir, generate_uuid, DEVICE_UUID
 
 load_dotenv(override=True)
 
 PINNACLE_TRUST_CODE = os.environ['PINNACLE_TRUST_CODE']
-PINNACLE_GUEST_API = os.environ['PINNACLE_GUEST_API']
-PINNACLE_API = os.environ['PINNACLE_API']
+PINNACLE_GUEST_API_URL = os.environ['PINNACLE_GUEST_API_URL']
+PINNACLE_API_URL = os.environ['PINNACLE_API_URL']
+PINNACLE_API_KEY = os.environ['PINNACLE_API_KEY']
 
 today = datetime.now().strftime('%Y-%m-%d')
 
 class PinnacleBettingBot(BettingBot):
     def __init__(self):
-        super().__init__(PINNACLE_GUEST_API)
+        super().__init__(PINNACLE_GUEST_API_URL)
         self.headers = {
             'Content-Type': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'x-api-key': 'CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R',
+            'x-api-key': PINNACLE_API_KEY,
             'Origin': 'https://www.pinnacle.com',
-            'x-device-uuid': '2d48ff69-f28214f0-be75ed89-e341243e'
+            'x-device-uuid': DEVICE_UUID
         }
         self.log_directory_path = f'src/responses/{today}'
         create_dir(self.log_directory_path)
@@ -52,7 +53,7 @@ class PinnacleBettingBot(BettingBot):
 
             response.raise_for_status()
             self.headers['X-Session'] = data.get('token', '')
-            self.base_url = PINNACLE_API
+            self.base_url = PINNACLE_API_URL
         except requests.HTTPError as http_err:
             logger.error(f"Login failed | HTTP error occurred: {http_err}")
         except RetryError as retry_err:

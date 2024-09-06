@@ -128,7 +128,7 @@ def main(args):
 
                 for game in games:
                     game_url = filter(lambda game_: game_['home']==game['home_team'] and game_['away']==game['away_team'], games_url)[0]
-                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, today=today)
+                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, game_id=game['game_id'])
                     logger.info(f"{bookmaker} odds for {game['home']} - {game['away']}: H: {home_odds} | D: {draw_odds} | A: {away_odds}")
 
                     home_proba, draw_proba, away_proba = float((Decimal(1) / Decimal(home_odds))*100), float((Decimal(1) / Decimal(draw_odds))*100), float((Decimal(1) / Decimal(away_odds))*100)
