@@ -35,9 +35,9 @@ def main(args):
         strategies_list = config('strategies', [])
 
         if betting_strategy in strategies_list:
-            log_file = f'{LOGS}/{betting_strategy}/main/{season}/{today}_main.log'
-            create_dir(log_file)
-            logger = setup_logger('main', log_file)
+            log_path = f'{LOGS}/{betting_strategy}/main/{season}'
+            create_dir(log_path)
+            logger = setup_logger('main', f'{log_path}/{today}_main.log')
 
             logger.info(f'Starting bet_bot:main {betting_strategy} {staking_strategy} {bookmaker}')
             
@@ -65,7 +65,7 @@ def main(args):
 
             betting_bot_factory = BettingBotFactory()
             betting_bot = betting_bot_factory.select_betting_bot(bookmaker)
-            logged_in = betting_bot.login(credentials, logger, today=today)
+            logged_in = betting_bot.login(credentials, logger)
 
             if not logged_in:
                 raise Exception(f'Unable to log into {bookmaker} account')
@@ -85,8 +85,12 @@ def main(args):
             consolidated_starting = 0
             total_staked = 0
 
-            for league in leagues.keys():
-                fetch_upcoming_games(league, today, season)
+            for league, league_id in leagues.items():
+                if not fetch_upcoming_games(league_id, today, season):
+                    logger.info(f'No game found for {league} on {today}')
+                    messages.append(f'No game found for {league} on {today}\n')
+                    break
+
                 data = read_csv_file(os.path.join(HIST_DATA_PATH, f'{season}/{league}.csv'))
 
                 if len(data) == 0:
@@ -116,8 +120,8 @@ def main(args):
                     messages.append(f"{league_name} bets")
                     messages.append(f"{'-' * (len(league_name)+5)}\n\n")
                 else:
-                    logger.info(f'No game found for {league} on {today}')
-                    messages.append(f'No game found for {league} on {today}\n')
+                    logger.info(f'Failed to retrieve games from DB for {league} on {today}')
+                    messages.append(f'Failed to retrieve games from DB for {league} on {today}\n')
                     break
 
                 consolidated = 0
@@ -168,6 +172,8 @@ def main(args):
                                 vig
                             ]
 
+                            values.pop('flag')
+
                             additional_values = [status, strat_config[league]['bankroll']]
 
                             final_values = pre_computed_values + list(values.values()) + additional_values
@@ -206,7 +212,8 @@ def main(args):
             
             send_email(messages, subject, logger)
         else:
-            raise ValueError('Unknown strategy picked.')
+            print('Unknown betting strategy or empty strategies list from config')
+            exit(1)
     except Exception as e:
         logger.error(e)
     else:

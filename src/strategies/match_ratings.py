@@ -36,13 +36,13 @@ class MatchRatingsStrategy(Strategy):
         self.dtp = 1 - self.hwtp - self.awtp
 
         if self.hwtp > 0:
-            self.thwo = float(Decimal(1) / Decimal(self.hwtp))
+            self.hwto = float(Decimal(1) / Decimal(self.hwtp))
         else:
-            self.thwo = self.home_odds
+            self.hwto = self.home_odds
         if self.awtp > 0:
-            self.tawo = float(Decimal(1) / Decimal(self.awtp))
+            self.awto = float(Decimal(1) / Decimal(self.awtp))
         else:
-            self.tawo = self.away_odds
+            self.awto = self.away_odds
         if self.dtp > 0:
             self.tdo = float(Decimal(1) / Decimal(self.dtp))
         else:
@@ -91,9 +91,9 @@ class MatchRatingsStrategy(Strategy):
             'home_rating': self.home_rating,
             'away_rating': self.away_rating,
             'match_rating': self.match_rating,
-            'thwo': self.thwo,
+            'hwto': self.hwto,
             'tdo': self.tdo,
-            'tawo': self.tawo,
+            'awto': self.awto,
             'hwtp': self.hwtp,
             'dtp': self.dtp,
             'awtp': self.awtp,

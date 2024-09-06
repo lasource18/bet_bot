@@ -17,13 +17,7 @@ with open(SQL_PROPERTIES, 'rb') as config_file:
     configs.load(config_file)
 
 # Function to load data from the database
-def load_data(betting_strategy):
-    match betting_strategy:
-        case 'match_ratings':
-            query = configs.get('GENERATE_MATCH_RATINGS_REPORTS').data
-        case _:
-            raise ValueError('Unknown betting strategy selected')
-
+def load_data(query):
     with sqlite3.connect(DB_FILE) as conn:
         df = pd.read_sql_query(query, conn)
         df['game_date'] = pd.to_datetime(df['game_date'])
@@ -119,36 +113,54 @@ def generate_by_league_reports(filtered_df: pd.DataFrame, period, betting_strate
 # Main function to run all reports
 def main(args):
     try:
-        period = args.period.lower()
         betting_strategy = args.betting_strategy.lower()
+        period = args.period.lower()
 
         today = datetime.now().strftime('%Y-%m-%d')
 
         config = read_config(CONFIG_FILE)
         leagues = config.get('leagues', {})
         season = config.get('season', '2024-2025')
+        strategies_list = config.get('strategies', [])
 
-        log_file = f'{LOGS}/{betting_strategy}/reports/{season}/{today}_reports_generator.log'
-        create_dir(log_file)
-        logger = setup_logger('reports_generator', log_file)
+        if betting_strategy in strategies_list:
+            log_path = f'{LOGS}/{betting_strategy}/reports/{season}'
+            create_dir(log_path)
+            logger = setup_logger('reports_generator', f'{log_path}/{today}_reports_generator.log' )
 
-        logger.info(f'Starting bet_bot:reports_generator {period} {betting_strategy}')
+            logger.info(f'Starting bet_bot:reports_generator {period} {betting_strategy}')
+            
+            assert len(leagues) != 0
 
-        df = load_data(betting_strategy)
-        filtered_df = filter_data(df, period)
-        
-        for league in leagues.keys():
-            logger.info(f'Generating reports for {league}')
-            generate_by_league_reports(filtered_df, period, betting_strategy, league, season)
-        logger.info(f'Generating consolidated report')
-        generate_consolidated_reports(filtered_df, period, betting_strategy, 'Consolidated', season)
+            match betting_strategy:
+                case 'match_ratings':
+                    query = configs.get('GENERATE_MATCH_RATINGS_REPORTS').data
+                case _:
+                    raise ValueError('Unknown betting strategy selected')
 
-        subject = f'Reports generated for {betting_strategy} on {today}'
-        messages = ['Reports attached herein:\n']
-        files = get_files_list(f'{REPORTS_DIR}/{betting_strategy}')
+            df = load_data(query)
 
-        send_email(subject, messages, logger, files)
+            if len(df) == 0:
+                raise ValueError('Not enough data to generate report')
 
+            filtered_df = filter_data(df, period)
+            
+            for league in leagues.keys():
+                logger.info(f'Generating reports for {league}')
+                generate_by_league_reports(filtered_df, period, betting_strategy, league, season)
+            logger.info(f'Generating consolidated report')
+            generate_consolidated_reports(filtered_df, period, betting_strategy, 'Consolidated', season)
+
+            subject = f'Reports generated for {betting_strategy} on {today}'
+            messages = ['Reports attached herein:\n']
+            files = get_files_list(f'{REPORTS_DIR}/{betting_strategy}')
+
+            send_email(subject, messages, logger, files)
+        else:
+            print('Unknown betting strategy or empty strategies list from config')
+            exit(1)
+    except AssertionError as ass_err:
+        logger.error(ass_err)
     except Exception as e:
         logger.error(e)
     else:

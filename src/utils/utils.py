@@ -4,6 +4,7 @@ import csv
 from datetime import datetime, timedelta
 from decimal import ROUND_DOWN, Decimal, getcontext
 
+import dateutil
 import requests
 from requests.exceptions import RetryError
 
@@ -68,7 +69,7 @@ def calculate_vig(*args):
 
 def read_config(file_path: str):
     with open(file_path, 'r') as f:
-        config = json.load(file_path)
+        config = json.load(f)
     return config
 
 def update_config(obj: dict, file_path: str):
@@ -77,15 +78,15 @@ def update_config(obj: dict, file_path: str):
 
 def create_dir(path: str):
     if not os.path.exists(path):
-        if os.path.isfile(path):
-            os.makedirs(os.path.dirname(path))
-        else:
-            os.makedirs(path)
+        os.makedirs(path)
         print(f"Directory '{path}' created.")
     else:
         print(f"Directory '{path}' already exists.")
 
 def get_files_list(path):
+    if not os.path.exists(path):
+        return None
+    
     files = []
     for root, dirs, files in os.walk(path, topdown=False):
         # Iterate over the files in current root
@@ -134,10 +135,10 @@ def generate_chart(csv_file, output_file, **kwargs):
 
 def fetch_upcoming_games(league, date, season):
     try:
-        date = date
+        fixtures = []
+        insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data
 
         params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
-
         response = requests.get(url, headers=headers, params=params)
 
         # print(response.json())
@@ -145,28 +146,25 @@ def fetch_upcoming_games(league, date, season):
         data = response.json()
 
         fixtures = [
-            (
-                fixture['fixture']['id'],
-                fixture['fixture']['date'], 
-                fixture['fixture']['teams']['home']['name'],
-                fixture['fixture']['teams']['away']['name'],
-                season,
-                fixture['fixture']['league']['name'],
-                fixture['fixture']['league']['round'].split(" - ")[-1],
+            (fixture['fixture']['id'],
+            dateutil.parser.parse(fixture['fixture']['date']).strftime('%Y-%m-%d'), 
+            fixture['teams']['home']['name'],
+            fixture['teams']['away']['name'],
+            fixture['league']['name'],
+            fixture['league']['round'].split(" - ")[-1],
             ) for fixture in data['response']
         ]
 
     except requests.HTTPError as http_err:
         print(f"Login failed | HTTP error occurred: {http_err}")
-        return []
-    except RetryError as err:
-        print(f"Login failed | Retry Error: {err}")
-        return []
+    except RetryError as retry_err:
+        print(f"Login failed | Retry Error: {retry_err}")
     except Exception as err:
-        print(f"fetch_today_games_results(): Other error occurred: {err.with_traceback()}")
-        return []
+        print(f"fetch_today_games_results(): Other error occurred: {err}")
     else:
-        execute_many(fixtures)
+        if len(fixtures) > 0:
+            execute_many(insert_into_upcoming_games, fixtures)
+            return True
 
 def load_one(q, *args):
     return db.load_one(q, args)
@@ -182,4 +180,3 @@ def delete_some(q, data):
 
 def delete_all(q):
     db.execute(q)
-    

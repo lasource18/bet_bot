@@ -2,7 +2,7 @@ import sqlite3
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 DB_FILE = os.environ['DB_FILE']
 
@@ -12,17 +12,17 @@ cursor = con.cursor()
 
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS upcoming_games ( id INTEGER PRIMARY KEY, 
-               game_id INTEGER UNIQUE NOT NULL, 
-               game_date TEXT NOT NULL, 
-               home_team TEXT NOT NULL, 
-               away_team TEXT NOT NULL,
-               season TEXT NOT NULL, 
-               league_code TEXT NOT NULL, 
-               league_name TEXT NOT NULL, 
-               round TEXT NOT NULL,
-               created_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime'),
-               updated_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime')
-               );
+            game_id INTEGER UNIQUE NOT NULL, 
+            game_date TEXT NOT NULL, 
+            home_team TEXT NOT NULL, 
+            away_team TEXT NOT NULL,
+            season TEXT NOT NULL, 
+            league_code TEXT NOT NULL, 
+            league_name TEXT NOT NULL, 
+            round TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime(current_timestamp, 'localtime')),
+            updated_at TEXT NOT NULL DEFAULT (datetime(current_timestamp, 'localtime'))
+    );
 """)
 
 cursor.execute("""
@@ -72,8 +72,8 @@ cursor.execute("""
                gl REAL NULL,
                profit REAL NULL,
                yield REAL NULL,
-               created_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime'),
-               updated_at DATETIME NOT NULL DEFAULT datetime(current_timestamp, 'localtime')
+               created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
+               updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime'))
                );
 """)
 

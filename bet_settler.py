@@ -43,15 +43,16 @@ def main(args):
 
             today = datetime.now().strftime('%Y-%m-%d')
 
-            log_file = f"{LOGS}/{betting_strategy}/bet_settler/{season}/{today}_bet_settler.log"
-            create_dir(log_file)
-            logger = setup_logger('bet_settler', log_file)
+            log_path = f"{LOGS}/{betting_strategy}/bet_settler/{season}"
+            create_dir(log_path)
+            logger = setup_logger('bet_settler', f'{log_path}/{today}_bet_settler.log')
 
             logger.info(f'Starting bet_bot:bet_settler {betting_strategy}')
 
             select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data
             update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data
             # delete_all_from_upcoming_games_query = configs.get('DELETE_ALL_FROM_UPCOMING_GAMES').data
+            delete_old_games_from_upcoming_games_query = configs.get('DELETE_OLD_GAMES_FROM_UPCOMING_GAMES').data
             delete_some_from_upcoming_games_query = configs.get('DELETE_SOME_FROM_UPCOMING_GAMES').data
 
             strategy_factory = StrategyFactory()
@@ -73,12 +74,15 @@ def main(args):
 
             for league, league_id in leagues.items():
                 bets = load_many(select_from_match_ratings_query, league, today)
-                bets = {bet['game_id']: bet for bet in bets}
 
                 if len(bets) == 0:
                     messages.append(f"No bets for {league_name} on {today}\n")
                     logger.warning(f"No bets for {league_name} on {today}")
                     break
+
+                delete_some(delete_old_games_from_upcoming_games_query, (today,))
+
+                bets = {bet['game_id']: bet for bet in bets}
                 
                 starting_bk = strat_config[league]['bankroll']
 
@@ -95,7 +99,10 @@ def main(args):
                 logger.info(f"Bets for {league_name} on {today}: \n{bets_headlines}")
                 results = fetch_today_games_results(session, league_id, today, season, bets.keys(), logger)
 
-                assert len(bets) == len(results)
+                if len(bets) != len(results):
+                    messages.append(f'Results length does not match bets length for {league}\n')
+                    logger.warning(f'Results length does not match bets length for {league}')
+                    break
 
                 wagered = 0
                 earnings= 0
@@ -105,7 +112,13 @@ def main(args):
                 for result in results:
                     fthg, ftag, ftr, game_id = result
 
-                    bet = bets[game_id]
+                    bet = bets.get(game_id, {})
+
+                    if not bet:
+                        messages.append(f'Game with id={game_id} is not found in bets table for {league}\n')
+                        logger.warning(f'Game with id={game_id} is not found in bets table for {league}')
+                        break
+                        
                     wagered += bet['stake']
 
                     gl = Decimal(bet['stake']) * Decimal(bet['bet_odds']) if ftr == bet['bet'] else -Decimal(bet['stake'])
@@ -168,8 +181,9 @@ def main(args):
                 
             # delete_all(delete_all_from_upcoming_games_query)
             send_email(messages, subject, logger)
-    except AssertionError as e:
-        logger.error(e)
+        else:
+            print('Unknown betting strategy or empty strategies list from config')
+            exit(1)
     except Exception as e:
         logger.error(e)
     else:
