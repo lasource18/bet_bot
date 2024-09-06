@@ -1,7 +1,5 @@
 from strategies.match_ratings import MatchRatingsStrategy
 
-import re
-
 class StrategyFactory(object):
     def select_strategy(self, method, data, league, config, staking_strategy: str = 'kelly', **kwargs):
         strategy = get_betting_strategy(method)
@@ -12,8 +10,8 @@ class StrategyFactory(object):
         return strategy.config_path
 
 def get_betting_strategy(method: str):
-    if re.match('[Mm]atch(_?)[Rr]ating(s?)', method.lower()):
+    if method == 'match_ratings':
         return MatchRatingsStrategy
     else:
-        raise ValueError(method)
+        raise ValueError(f'Wrong straregy {method} chosen')
     

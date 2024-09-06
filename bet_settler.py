@@ -16,7 +16,7 @@ from helpers.bet_settler_args_parser import args_parser
 from helpers.logger import setup_logger
 from helpers.session import SessionManager
 from strategies.strategy_factory import StrategyFactory
-from utils.utils import API_KEY, LOGS, RAPIDAPI_HOST, SQL_PROPERTIES, CONFIG_FILE, delete_all, delete_some, execute_many, generate_chart, load_many, read_config, record_bankroll, update_config
+from utils.utils import *
 
 url = f"https://{RAPIDAPI_HOST}/v3/fixtures"
 
@@ -43,7 +43,9 @@ def main(args):
 
             today = datetime.now().strftime('%Y-%m-%d')
 
-            logger = setup_logger('bet_settler', f"{LOGS}/{betting_strategy}/bet_settler/{config['season']}/{today}_bet_settler.log")
+            log_file = f"{LOGS}/{betting_strategy}/bet_settler/{season}/{today}_bet_settler.log"
+            create_dir(log_file)
+            logger = setup_logger('bet_settler', log_file)
 
             logger.info(f'Starting bet_bot:bet_settler {betting_strategy}')
 
@@ -75,7 +77,7 @@ def main(args):
 
                 if len(bets) == 0:
                     messages.append(f"No bets for {league_name} on {today}\n")
-                    logger.warning(f"No bets for {league_name} on {today}.")
+                    logger.warning(f"No bets for {league_name} on {today}")
                     break
                 
                 starting_bk = strat_config[league]['bankroll']
@@ -95,10 +97,6 @@ def main(args):
 
                 assert len(bets) == len(results)
 
-                if len(results) == 0:
-                    messages.append(f"Unable to retrieve results for {league_name} on {today}.")
-                    break
-
                 wagered = 0
                 earnings= 0
 
@@ -106,14 +104,18 @@ def main(args):
 
                 for result in results:
                     fthg, ftag, ftr, game_id = result
+
                     bet = bets[game_id]
                     wagered += bet['stake']
+
                     gl = Decimal(bet['stake']) * Decimal(bet['bet_odds']) if ftr == bet['bet'] else -Decimal(bet['stake'])
                     gl = float(gl)
                     earnings += gl
+
                     profit = gl - bet['stake'] if gl > 0 else gl
-                    profit = float(profit)
+
                     res =  'W' if gl > 0 else ('NB' if gl == 0 else 'L')
+                    
                     yield_ = Decimal(profit) / Decimal(bet['bankroll']) * 100
                     yield_ = float(yield_)
 

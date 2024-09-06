@@ -1,3 +1,4 @@
+from logging import Logger
 import os
 from dotenv import load_dotenv
 
@@ -21,11 +22,11 @@ class MatchRatingsStrategy(Strategy):
         self.draw_odds = kwargs.get('draw_odds', 0)
         self.away_odds = kwargs.get('away_odds', 0)
 
-    def compute(self, home: str, away: str, betting_strategy, logger):
+    def compute(self, home: str, away: str, betting_strategy: str, logger: Logger):
         getcontext().prec = 3
         df = self.data.copy()
         df.reset_index()
-        df = df[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR']]
+        df = df[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG']]
         lst = get_teams_list(df)
         teams = group_data_by_teams(df, lst)
         self.home_rating, self.away_rating, self.match_rating = compute_ratings(teams, home, away)
@@ -130,7 +131,6 @@ def group_data_by_teams(df: DataFrame, lst: List[str], curr_season: str):
         teams[el].loc[teams[el].HomeTeam == el, 'Rating'] = teams[el]['FTHG'] - teams[el]['FTAG']
         teams[el].loc[teams[el].AwayTeam == el, 'Rating'] = teams[el]['FTAG'] - teams[el]['FTHG']
         teams[el]['Rolling Average'] = teams[el]['Rating'].shift().rolling(6).sum()
-        teams[el]['Match Rating'] = 0
     return teams
     
 def compute_ratings(teams: Dict[str, DataFrame], home, away):

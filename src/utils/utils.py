@@ -1,6 +1,5 @@
 import json
 import os
-import time
 import csv
 from datetime import datetime, timedelta
 from decimal import ROUND_DOWN, Decimal, getcontext
@@ -76,12 +75,15 @@ def update_config(obj: dict, file_path: str):
     with open(file_path, 'w') as f:
         json.dump(obj, f)
 
-def create_dir(directory_path: str):
-    if not os.path.exists(directory_path):
-        os.makedirs(os.path.dirname(directory_path))
-        print(f"Directory '{directory_path}' created.")
+def create_dir(path: str):
+    if not os.path.exists(path):
+        if os.path.isfile(path):
+            os.makedirs(os.path.dirname(path))
+        else:
+            os.makedirs(path)
+        print(f"Directory '{path}' created.")
     else:
-        print(f"Directory '{directory_path}' already exists.")
+        print(f"Directory '{path}' already exists.")
 
 def get_files_list(path):
     files = []
@@ -93,11 +95,10 @@ def get_files_list(path):
     return files
 
 def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
-    file_exists = os.path.isfile(file_path)
     with open(file_path, 'a') as file:
         writer = csv.DictWriter(file, fieldnames=['date', 'bankroll'])
 
-        if not file_exists:
+        if not os.path.isfile(file_path):
             writer.writeheader()
             writer.writerow({'date': (date-timedelta(1)).strftime('%Y-%m-%d'), 'bankroll': starting_bk})
 
@@ -109,7 +110,7 @@ def read_csv_file(file_path: str):
 
 def generate_chart(csv_file, output_file, **kwargs):
     league = kwargs.get('league', '')
-    season = kwargs.get('league', '')
+    season = kwargs.get('season', '')
     # Load the CSV file into a DataFrame
     df = read_csv_file(csv_file)
 
@@ -181,3 +182,4 @@ def delete_some(q, data):
 
 def delete_all(q):
     db.execute(q)
+    

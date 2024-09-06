@@ -35,7 +35,9 @@ def main(args):
         strategies_list = config('strategies', [])
 
         if betting_strategy in strategies_list:
-            logger = setup_logger('main', f'{LOGS}/{betting_strategy}/main/{season}/{today}_main.log')
+            log_file = f'{LOGS}/{betting_strategy}/main/{season}/{today}_main.log'
+            create_dir(log_file)
+            logger = setup_logger('main', log_file)
 
             logger.info(f'Starting bet_bot:main {betting_strategy} {staking_strategy} {bookmaker}')
             
