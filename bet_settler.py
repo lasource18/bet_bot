@@ -39,7 +39,7 @@ def main(args):
         season = config.get('season', '2024-2025')
 
         if betting_strategy in strategies_list:
-            getcontext.prec = 3
+            getcontext().prec = 3
 
             today = datetime.now().strftime('%Y-%m-%d')
 
@@ -49,17 +49,15 @@ def main(args):
 
             logger.info(f'Starting bet_bot:bet_settler {betting_strategy}')
 
-            select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data
-            update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data
-            # delete_all_from_upcoming_games_query = configs.get('DELETE_ALL_FROM_UPCOMING_GAMES').data
-            delete_old_games_from_upcoming_games_query = configs.get('DELETE_OLD_GAMES_FROM_UPCOMING_GAMES').data
-            delete_some_from_upcoming_games_query = configs.get('DELETE_SOME_FROM_UPCOMING_GAMES').data
-
+            select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data.replace('\"', '')
+            update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data.replace('\"', '')
+            # delete_all_from_upcoming_games_query = configs.get('DELETE_ALL_FROM_UPCOMING_GAMES').data.replace('\"', '')
+            delete_old_games_from_upcoming_games_query = configs.get('DELETE_OLD_GAMES_FROM_UPCOMING_GAMES').data.replace('\"', '')
+            delete_some_from_upcoming_games_query = configs.get('DELETE_SOME_FROM_UPCOMING_GAMES').data.replace('\"', '')
             strategy_factory = StrategyFactory()
 
             config_path = strategy_factory.get_config(betting_strategy)
             strat_config = read_config(config_path)
-            league_name = strat_config[league]['name']
             
             updates = []
             session = SessionManager().get_session()
@@ -73,12 +71,14 @@ def main(args):
             bets = []
 
             for league, league_id in leagues.items():
+                league_name = strat_config[league]['name']
+
                 bets = load_many(select_from_match_ratings_query, league, today)
 
                 if len(bets) == 0:
-                    messages.append(f"No bets for {league_name} on {today}\n")
-                    logger.warning(f"No bets for {league_name} on {today}")
-                    break
+                    messages.append(f"No bets for {league_name}\n")
+                    logger.warning(f"No bets for {league_name}")
+                    continue
 
                 delete_some(delete_old_games_from_upcoming_games_query, (today,))
 
@@ -102,7 +102,7 @@ def main(args):
                 if len(bets) != len(results):
                     messages.append(f'Results length does not match bets length for {league}\n')
                     logger.warning(f'Results length does not match bets length for {league}')
-                    break
+                    continue
 
                 wagered = 0
                 earnings= 0
@@ -117,7 +117,7 @@ def main(args):
                     if not bet:
                         messages.append(f'Game with id={game_id} is not found in bets table for {league}\n')
                         logger.warning(f'Game with id={game_id} is not found in bets table for {league}')
-                        break
+                        continue
                         
                     wagered += bet['stake']
 

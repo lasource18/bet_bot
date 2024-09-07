@@ -20,8 +20,8 @@ configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
     configs.load(config_file)
 
-insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data
-load_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data
+insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data.replace('\"', '')
+select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data.replace('\"', '')
 
 today = datetime.now().strftime('%Y-%m-%d')
 
@@ -32,7 +32,9 @@ def main(args):
         bookmaker = args.bookmaker.lower()
 
         config = read_config(CONFIG_FILE)
-        strategies_list = config('strategies', [])
+        leagues = config.get('leagues', {})
+        season = config.get('season', '2024-2025')
+        strategies_list = config.get('strategies', [])
 
         if betting_strategy in strategies_list:
             log_path = f'{LOGS}/{betting_strategy}/main/{season}'
@@ -50,13 +52,10 @@ def main(args):
                 bookmaker_ids = config['pinnacle_ids']
             else:
                 raise ValueError('Unknown bookmaker chosen.')
-            
-            leagues = config.get('leagues', {})
-            season = config.get('season', '2024-2025')
 
             credentials = read_config(CREDENTIALS_FILE)
 
-            logger.info(f'Config: Leagues: {leagues.keys()} | Season: {season}')
+            logger.info(f'Config: Leagues: {list(leagues.keys())} | Season: {season}')
 
             bets = []
             status = 'FAILED'
@@ -65,7 +64,7 @@ def main(args):
 
             betting_bot_factory = BettingBotFactory()
             betting_bot = betting_bot_factory.select_betting_bot(bookmaker)
-            logged_in = betting_bot.login(credentials, logger)
+            logged_in = betting_bot.login(credentials[bookmaker], logger)
 
             if not logged_in:
                 raise Exception(f'Unable to log into {bookmaker} account')
@@ -75,28 +74,27 @@ def main(args):
             strategy_factory = StrategyFactory()
             config_path = strategy_factory.get_config(betting_strategy)
             strat_config = read_config(config_path)
-            league_name = strat_config[league]['name']
 
-            select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data
-
-            subject = f'Bets for {today} with {betting_strategy} strategy with {bookmaker}'
+            subject = f'Bets on {today} for {betting_strategy} strategy with {bookmaker}'
             messages = []
 
             consolidated_starting = 0
             total_staked = 0
 
             for league, league_id in leagues.items():
+                league_name = strat_config[league]['name']
+
                 if not fetch_upcoming_games(league_id, today, season):
-                    logger.info(f'No game found for {league} on {today}')
-                    messages.append(f'No game found for {league} on {today}\n')
-                    break
+                    logger.info(f'No game found for {league_name}')
+                    messages.append(f'No game found for {league_name}\n')
+                    continue
 
                 data = read_csv_file(os.path.join(HIST_DATA_PATH, f'{season}/{league}.csv'))
 
                 if len(data) == 0:
-                    logger.warning(f'Failed to retrieve historical data for {league}')
-                    messages.append(f'Failed to retrieve historical data for {league}\n')
-                    break
+                    logger.warning(f'Failed to retrieve historical data for {league_name}')
+                    messages.append(f'Failed to retrieve historical data for {league_name}\n')
+                    continue
                 
                 games = load_many(select_upcoming_games_query, today, league)
 
@@ -111,7 +109,7 @@ def main(args):
                 
                 if len(games) > 0:
                     games_headlines = '\n'.join([f"{game['home_team']} - {game['away_team']}" for game in games])
-                    logger.info(f'Games for {league} on {today}: \n{games_headlines}')
+                    logger.info(f'Games for {league_name}: \n{games_headlines}')
                     messages.append(games_headlines)
 
                     betting_bot.simulate_human_behavior()
@@ -120,9 +118,9 @@ def main(args):
                     messages.append(f"{league_name} bets")
                     messages.append(f"{'-' * (len(league_name)+5)}\n\n")
                 else:
-                    logger.info(f'Failed to retrieve games from DB for {league} on {today}')
-                    messages.append(f'Failed to retrieve games from DB for {league} on {today}\n')
-                    break
+                    logger.info(f'Failed to retrieve games from DB for {league}')
+                    messages.append(f'Failed to retrieve games from DB for {league}\n')
+                    continue
 
                 consolidated = 0
 
@@ -143,7 +141,7 @@ def main(args):
                         values = strategy.compute(game['home_team'], game['away_team'], betting_strategy, logger)
                     except ValueError as err:
                         logger.error(err)
-                        break
+                        continue
                     
                     status = get_status(betting_bot, bookmaker, values, game_url, game['game_id'], logger)
 
@@ -206,9 +204,9 @@ def main(args):
                 logger.info(f"Consolidated ending bankroll: ${final_bk}")
 
                 execute_many(insert_new_bets_query, bets)
-            else:
-                messages.append(f'0 bets placed on {today}\n')
-                logger.warning(f'0 bets placed on {today}')
+            
+            messages.append(f'Total: {len(bets)} bets placed\n')
+            logger.warning(f'Total: {len(bets)} bets placed')
             
             send_email(messages, subject, logger)
         else:

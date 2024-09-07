@@ -30,7 +30,7 @@ REPORTS_DIR = os.environ["REPORTS_DIR"]
 CREDENTIALS_FILE = os.environ['CREDENTIALS_FILE']
 HIST_DATA_PATH = os.environ['HIST_DATA_PATH']
 BETTING_CRAWLER_PATH = os.environ['BETTING_CRAWLER_PATH']
-DEVICE_UUID = os.environ['X-DEVICE-UUID']
+DEVICE_UUID = os.environ['DEVICE_UUID']
 
 configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
@@ -137,7 +137,7 @@ def generate_chart(csv_file, output_file, **kwargs):
 def fetch_upcoming_games(league, date, season):
     try:
         fixtures = []
-        insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data
+        insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data.replace('\"', '')
 
         params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
         response = requests.get(url, headers=headers, params=params)
@@ -168,10 +168,10 @@ def fetch_upcoming_games(league, date, season):
             return True
 
 def load_one(q, *args):
-    return db.load_one(q, args)
+    return db.load_one(q, *args)
 
 def load_many(q, *args):
-    return db.load_many(q, args)
+    return db.load_many(q, *args)
 
 def execute_many(q, data):
     db.execute_many(q, data)

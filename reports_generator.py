@@ -19,6 +19,7 @@ with open(SQL_PROPERTIES, 'rb') as config_file:
 # Function to load data from the database
 def load_data(query):
     with sqlite3.connect(DB_FILE) as conn:
+        print(query)
         df = pd.read_sql_query(query, conn)
         df['game_date'] = pd.to_datetime(df['game_date'])
 
@@ -134,7 +135,7 @@ def main(args):
 
             match betting_strategy:
                 case 'match_ratings':
-                    query = configs.get('GENERATE_MATCH_RATINGS_REPORTS').data
+                    query = configs.get('GENERATE_MATCH_RATINGS_REPORTS').data.replace('\"', '')
                 case _:
                     raise ValueError('Unknown betting strategy selected')
 
