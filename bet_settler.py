@@ -76,8 +76,8 @@ def main(args):
                 bets = load_many(select_from_match_ratings_query, league, today)
 
                 if len(bets) == 0:
-                    messages.append(f"No bets for {league_name}\n")
-                    logger.warning(f"No bets for {league_name}")
+                    messages.append(f"No bets to settle for {league_name}\n")
+                    logger.warning(f"No bets to settle for {league_name}")
                     continue
 
                 delete_some(delete_old_games_from_upcoming_games_query, (today,))
@@ -121,16 +121,14 @@ def main(args):
                         
                     wagered += bet['stake']
 
-                    gl = Decimal(bet['stake']) * Decimal(bet['bet_odds']) if ftr == bet['bet'] else -Decimal(bet['stake'])
-                    gl = float(gl)
+                    gl = float(Decimal(bet['stake']) * Decimal(bet['bet_odds']))if ftr == bet['bet'] else -bet['stake']
                     earnings += gl
 
                     profit = gl - bet['stake'] if gl > 0 else gl
 
                     res =  'W' if gl > 0 else ('NB' if gl == 0 else 'L')
                     
-                    yield_ = Decimal(profit) / Decimal(bet['bankroll']) * 100
-                    yield_ = float(yield_)
+                    yield_ = float(Decimal(profit) / Decimal(bet['bankroll']) * 100)
 
                     updates.append((fthg, ftag, ftr, res, gl, profit, yield_, game_id))
                     messages.append(f"Results for {bet['home_team']} - {bet['away_team']}: Score: {fthg}-{ftag} | My bet: {bet['bet']} | Odds: {bet['bet_odds']} | Bookmaker: {bet['bookmaker']} | Result: {res} | Stake: ${bet['stake']} | G/L: {gl} | Profit: {profit} | Yield: {yield_}%\n")
@@ -148,8 +146,8 @@ def main(args):
                 messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}")
                 logger.info(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}")
 
-                file_path = f'bankroll/{season}/{league}_bankroll.csv'
-                output_path = f'bankroll/{season}/charts/{league}_bankroll.png'
+                file_path = f'{BANKROLL_DIR}/{season}/{league}_bankroll.csv'
+                output_path = f'{BANKROLL_DIR}/{season}/charts/{league}_bankroll.png'
                 record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today)
                 generate_chart(file_path, output_path, league=league_name, season=season)
 
@@ -161,8 +159,8 @@ def main(args):
                 delete_some(delete_some_from_upcoming_games_query, (league, today))
             
             if len(bets) > 0:
-                file_path = f'bankroll/{season}/Consolidated_bankroll.csv'
-                output_path = f'bankroll/{season}/charts/Consolidated_bankroll.png'
+                file_path = f'{BANKROLL_DIR}/{season}/Consolidated_bankroll.csv'
+                output_path = f'{BANKROLL_DIR}/{season}/charts/Consolidated_bankroll.png'
                 final_bk = consolidated_starting+total_earnings
                 record_bankroll(consolidated_starting, final_bk, file_path, today)
                 generate_chart(file_path, output_path, league='Consolidated', season=season)

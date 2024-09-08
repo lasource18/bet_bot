@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # Check if the correct number of arguments is passed
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 directory crawler log_file"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 directory crawler"
     exit 1
 fi
 
 # Assign arguments to variables
 CRAWLER_DIR=$1
 CRAWLER_NAME=$2
-LOG_FILE=$3
+
+LOG_FILE="/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/logs/historical_data/$(date '+%Y-%m-%d')_historical_data.log"
 
 # Check if the directory exists
 if [ ! -d "$CRAWLER_DIR" ]; then

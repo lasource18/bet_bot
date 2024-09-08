@@ -11,3 +11,4 @@ misc*
 *.json
 *.jsonl
 *.DS_Store*
+crons.txt

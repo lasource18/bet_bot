@@ -3,13 +3,12 @@
 from optparse import OptionParser
 
 def args_parser():
-    parser = OptionParser('bet_bot_reports_generator -B <betting_strategy> -P <period>')
+    parser = OptionParser('bet_bot_reports_generator -B <betting_strategy>')
     parser.add_option("-B", dest="betting_strategy", type='string', help="specify betting strategy")
-    parser.add_option("-P", dest="period", type='string', help="specify the period")
 
     (options, args) = parser.parse_args()
 
-    if (options.betting_strategy == None) | (options.period == None):
+    if (options.betting_strategy == None):
         print(f'Usage: {parser.usage}')
         exit(1)
 
