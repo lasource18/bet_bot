@@ -164,7 +164,7 @@ class PinnacleBettingBot(BettingBot):
             with open(f'{self.responses_directory_path}/get_min_max_stake_{game_id}.json', 'w') as f:
                 json.dump(data, f)
 
-            min_stake = 0
+            min_stake = 1
             max_stake = 10_000
             
             response.raise_for_status()

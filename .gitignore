@@ -3,6 +3,7 @@ betting.db
 historical_data/*
 venv/
 logs/
+bankroll/*
 reports/*
 tests/*
 misc*

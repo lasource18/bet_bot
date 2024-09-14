@@ -2,8 +2,10 @@ from staking.staking import Staking
 
 from decimal import getcontext, Decimal
 
+getcontext().prec = 3
+
 class KellyStaking(Staking):
-    FRAC_KELLY = 0.1
+    FRAC_KELLY = 0.5
 
     def __init__(self, bk, **kwargs) -> None:
         super().__init__(bk)
@@ -13,5 +15,4 @@ class KellyStaking(Staking):
     def compute(self):
         if self.odds == 0:
             return 0.0
-        getcontext().prec = 3
         return float(Decimal(self.bk) * Decimal(self.FRAC_KELLY) * (Decimal(self.value) / (Decimal(self.odds) - 1)))

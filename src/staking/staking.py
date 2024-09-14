@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 class Staking(object):
-    def __init__(self, bk) -> None:
+    def __init__(self, bk, **kwargs) -> None:
         self.bk = bk
     
     @abstractmethod

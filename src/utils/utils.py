@@ -45,9 +45,13 @@ headers = {
 	"x-rapidapi-host": RAPIDAPI_HOST
 }
 
+getcontext().prec = 4
+getcontext().rounding = ROUND_DOWN
+
 def american_to_decimal(american_odds):
     getcontext().prec = 4
     getcontext().rounding = ROUND_DOWN
+
     if american_odds == 0:
         return 1.0
     if american_odds > 0:
@@ -56,6 +60,8 @@ def american_to_decimal(american_odds):
         return (Decimal(100) / Decimal(abs(american_odds))) + 1
 
 def decimal_to_american(decimal_odds):
+    getcontext().prec = 4
+
     if decimal_odds == 1.0:
         return 0
     if decimal_odds >= 2.0:
@@ -67,8 +73,9 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 def calculate_vig(*args):
-    commission = 1 - 1 / sum(args)
-    return commission if 1 - 1 / sum(args) > 0 else 0
+    getcontext().prec = 4
+    commission = float(Decimal(1) - (Decimal(1) / Decimal(sum(args))))
+    return commission if commission > 0 else 0.
 
 def read_config(file_path: str):
     with open(file_path, 'r') as f:
@@ -99,17 +106,18 @@ def get_files_list(path):
     return files
 
 def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
+    file_exists = os.path.isfile(file_path)
     with open(file_path, 'a') as file:
         writer = csv.DictWriter(file, fieldnames=['date', 'bankroll'])
 
-        if not os.path.isfile(file_path):
-            writer.writeheader()
+        if not file_exists:
+            writer.writeheader()    
             writer.writerow({'date': (date-timedelta(1)).strftime('%Y-%m-%d'), 'bankroll': starting_bk})
 
         writer.writerow({'date': date.strftime('%Y-%m-%d'), 'bankroll': bk})
 
 def read_csv_file(file_path: str):
-    df = pd.read_csv_file(file_path, header=0)
+    df = pd.read_csv(file_path)
     return df
 
 def generate_chart(csv_file, output_file, **kwargs):
@@ -123,7 +131,7 @@ def generate_chart(csv_file, output_file, **kwargs):
 
     # Plot the data
     plt.figure(figsize=(10, 6))
-    plt.plot(df['date'], df['data'], marker='o')
+    plt.plot(df['date'], df['bankroll'], marker='o')
 
     # Set plot labels and title
     plt.xlabel('Date')

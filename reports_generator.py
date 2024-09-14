@@ -85,6 +85,7 @@ def load_data(query):
 # Function to generate and save reports
 def generate_reports(df: pd.DataFrame, period, report_path):
     # resampled_df = resample_data(df, period)
+    df = df[(df['result'] == 'W') | (df['result'] == 'L')]
 
     # Overall stats
     overall_stats = df.describe()
@@ -98,9 +99,9 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     # Generate plots
     sns.set_theme(style="whitegrid")
 
-    # Horizontal bar chart for average stake per league
+    # Horizontal bar chart for average stake per league_code
     plt.figure(figsize=(10, 6))
-    avg_stake = df.groupby('league')['stake'].mean().sort_values()
+    avg_stake = df.groupby('league_code')['stake'].mean().sort_values()
     ax = avg_stake.plot(kind='barh', color='skyblue')
 
     # Add the value of each bar on the chart
@@ -117,7 +118,7 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     # Bar chart of profit by bookmaker
     plt.figure(figsize=(10, 6))
     # sns.barplot(data=bookmaker_stats.reset_index(), x='bookmaker', y=('profit', 'sum'))
-    profit_sum = df.groupby('league')['profit'].sum().sort_values()
+    profit_sum = df.groupby('league_code')['profit'].sum().sort_values()
     ax = profit_sum.plot(kind='bar', color='grey')
 
     # Add the value of each bar on the chart
@@ -132,7 +133,7 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     # Bar chart of yield by bookmaker
     plt.figure(figsize=(10, 6))
     # sns.barplot(data=bookmaker_stats.reset_index(), x='bookmaker', y=('yield', 'mean'))
-    avg_yield = df.groupby('league')['yield'].mean().sort_values()
+    avg_yield = df.groupby('bookmaker')['yield'].mean().sort_values()
     ax = avg_yield.plot(kind='bar', color='yellow')
 
     # Add the value of each bar on the chart
@@ -144,10 +145,10 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     plt.savefig(f'{report_path}/charts/avg_yield_by_bookmaker.png')
     plt.close()
 
-    # Bar chart of vig by league_code
+    # Bar chart of vig by bookmaker
     plt.figure(figsize=(10, 6))
     # sns.barplot(data=bookmaker_stats.reset_index(), x='bookmaker', y=('vig', 'mean'))
-    avg_vig = df.groupby('league')['vig'].mean().sort_values()
+    avg_vig = df.groupby('bookmaker')['vig'].mean().sort_values()
     ax = avg_vig.plot(kind='barh', color='red')
 
     # Add the value of each bar on the chart
@@ -159,7 +160,7 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     plt.savefig(f"{report_path}/charts/avg_vig_by_bookmaker.png")
     plt.close()
 
-    # Generate boxplot of match_ratings by league
+    # Generate boxplot of match_ratings by league_code
     plt.figure(figsize=(10, 6))
     sns.boxplot(data=df, x='league_code', y='match_rating')
     plt.title(f'{period.capitalize()} Match Ratings Dispersion by League')
@@ -167,7 +168,7 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     plt.savefig(f"{report_path}/charts/match_ratings_dispersion_by_league.png")
     plt.close()
 
-    # Generate boxplot of profit by league
+    # Generate boxplot of profit by league_code
     plt.figure(figsize=(10, 6))
     sns.boxplot(data=df, x='league_code', y='profit')
     plt.title(f'{period.capitalize()} Profit Dispersion by League')
@@ -183,12 +184,13 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     plt.savefig(f"{report_path}/charts/bets_by_league.png")
     plt.close()
 
-    # Win rate per league
+    # Win rate per league_code
     plt.figure(figsize=(10, 6))
     total_bets = df.groupby('league_code')['result'].count()
     success_bets = df[df['result'] == 'W']
     success_count = success_bets.groupby('league_code')['result'].count()
     win_rate_per_league = (success_count / total_bets) * 100
+    win_rate_per_league.fillna(0, inplace=True)
     ax = win_rate_per_league.round(2).sort_values().plot(kind='barh', color='lightgreen')
 
     # Add the percentage on the chart
@@ -208,7 +210,7 @@ def generate_reports(df: pd.DataFrame, period, report_path):
     bookmaker_stats.T.to_csv(f'{report_path}/reports/bookmaker_stats.csv')
     match_rating_stats.T.to_csv(f'{report_path}/reports/match_rating_stats.csv')
 
-    wr = round(df[df['result']=='W'].count() / df.shape[0] * 100, 2)
+    wr = round(success_bets['result'].count() / df.shape[0] * 100, 2)
 
     return wr
 

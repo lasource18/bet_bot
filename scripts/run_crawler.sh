@@ -21,7 +21,9 @@ fi
 # Change to the crawler directory
 cd "$CRAWLER_DIR" || exit
 
+SCRAPY="/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/venv/bin/scrapy"
+
 # Run the scrapy crawler and redirect output to the log file
-scrapy crawl $CRAWLER_NAME &> "$LOG_FILE"
+$SCRAPY crawl $CRAWLER_NAME &> "$LOG_FILE"
 
 echo "Crawler has finished. Logs are saved to $LOG_FILE."

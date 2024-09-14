@@ -21,7 +21,7 @@ cursor.execute("""
             league_name TEXT NOT NULL, 
             round TEXT NOT NULL,
             created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S.%f', 'now', 'localtime')),
-            updated_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S.%f', 'now', 'localtime'))
+            updated_at DATETIME NULL
     );
 """)
 
@@ -73,7 +73,7 @@ cursor.execute("""
                profit REAL NULL,
                yield REAL NULL,
                created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S.%f', 'now', 'localtime')),
-               updated_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S.%f', 'now', 'localtime'))
+               updated_at DATETIME NULL
                );
 """)
 

@@ -41,7 +41,8 @@ def main(args):
         if betting_strategy in strategies_list:
             getcontext().prec = 3
 
-            today = datetime.now().strftime('%Y-%m-%d')
+            today_dt = datetime.now()
+            today = today_dt.strftime('%Y-%m-%d')
 
             log_path = f"{LOGS}/{betting_strategy}/bet_settler/{season}"
             create_dir(log_path)
@@ -52,7 +53,6 @@ def main(args):
             select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data.replace('\"', '')
             update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data.replace('\"', '')
             # delete_all_from_upcoming_games_query = configs.get('DELETE_ALL_FROM_UPCOMING_GAMES').data.replace('\"', '')
-            delete_old_games_from_upcoming_games_query = configs.get('DELETE_OLD_GAMES_FROM_UPCOMING_GAMES').data.replace('\"', '')
             delete_some_from_upcoming_games_query = configs.get('DELETE_SOME_FROM_UPCOMING_GAMES').data.replace('\"', '')
             strategy_factory = StrategyFactory()
 
@@ -62,11 +62,17 @@ def main(args):
             updates = []
             session = SessionManager().get_session()
 
-            subject = f'Bets results for {today} with {betting_strategy} strategy'
+            subject = f'Settling bets for {today} with {betting_strategy} strategy'
             messages = []
 
             total_wagered = 0
             total_earnings = 0
+            total_profit = 0
+
+            bk_dir = f'{BANKROLL_DIR}/{season}/data'
+            create_dir(bk_dir)
+            bk_chart_dir = f'{BANKROLL_DIR}/{season}/charts'
+            create_dir(bk_chart_dir)
 
             bets = []
 
@@ -80,21 +86,18 @@ def main(args):
                     logger.warning(f"No bets to settle for {league_name}")
                     continue
 
-                delete_some(delete_old_games_from_upcoming_games_query, (today,))
-
                 bets = {bet['game_id']: bet for bet in bets}
                 
                 starting_bk = strat_config[league]['bankroll']
 
-                messages.append(f"{league_name} starting bankroll: {starting_bk}\n\n")
+                messages.append(f"{league_name} starting bankroll: ${starting_bk}\n")
 
                 logger.info(f"Starting bankroll for {league_name}: ${starting_bk}")
                 consolidated_starting += starting_bk
 
-                bets_headlines = '\n'.join([f"{bet['home_team']} - {bet['away_team']}" for bet in bets.values()])
+                bets_headlines = '\n'.join([f"{bet[1]} - {bet[2]}" for bet in bets.values()])
 
-                messages.append(f"{league_name} games")
-                messages.append(f"{'-' * (len(league_name)+6)}\n\n")
+                messages.append(f"{league_name} games\n {'-' * (len(league_name)+6)}\n")
 
                 logger.info(f"Bets for {league_name} on {today}: \n{bets_headlines}")
                 results = fetch_today_games_results(session, league_id, today, season, bets.keys(), logger)
@@ -105,12 +108,15 @@ def main(args):
                     continue
 
                 wagered = 0
-                earnings= 0
+                earnings = 0
+                sum_profit = 0
 
                 time.sleep(1)
 
                 for result in results:
                     fthg, ftag, ftr, game_id = result
+
+                    # game_id, home_team, away_team, bet, stake, bet_odds, bookmaker, bankroll
 
                     bet = bets.get(game_id, {})
 
@@ -118,64 +124,70 @@ def main(args):
                         messages.append(f'Game with id={game_id} is not found in bets table for {league}\n')
                         logger.warning(f'Game with id={game_id} is not found in bets table for {league}')
                         continue
-                        
-                    wagered += bet['stake']
 
-                    gl = float(Decimal(bet['stake']) * Decimal(bet['bet_odds']))if ftr == bet['bet'] else -bet['stake']
-                    earnings += gl
+                    gl = float(Decimal(bet[4]) * Decimal(bet[5]))if ftr == bet[3] else -bet[4]
 
-                    profit = gl - bet['stake'] if gl > 0 else gl
+                    profit = float(Decimal(gl) - Decimal(bet[4])) if gl > 0 else gl
 
-                    res =  'W' if gl > 0 else ('NB' if gl == 0 else 'L')
+                    if bet[8] == 'SUCCESS':
+                        res =  'W' if gl > 0 else ('NB' if gl == 0 else 'L')
+                        wagered += bet[4]
+                        earnings += gl
+                        sum_profit += profit
+                    else:
+                        res = 'NB'
                     
-                    yield_ = float(Decimal(profit) / Decimal(bet['bankroll']) * 100)
+                    yield_ = float(Decimal(profit) / Decimal(bet[7]) * 100)
 
-                    updates.append((fthg, ftag, ftr, res, gl, profit, yield_, game_id))
-                    messages.append(f"Results for {bet['home_team']} - {bet['away_team']}: Score: {fthg}-{ftag} | My bet: {bet['bet']} | Odds: {bet['bet_odds']} | Bookmaker: {bet['bookmaker']} | Result: {res} | Stake: ${bet['stake']} | G/L: {gl} | Profit: {profit} | Yield: {yield_}%\n")
-                    logger.info(f"Results for {bet['home_team']} - {bet['away_team']}: Score: {fthg}-{ftag} | My bet: {bet['bet']} | Odds: {bet['bet_odds']} | Bookmaker: {bet['bookmaker']} | Result: {res} | Stake: ${bet['stake']} | G/L: {gl} | Profit: {profit} | Yield: {yield_}%")
+                    updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%f')
 
-                messages.append(f'Amount wagered for {league_name}: ${wagered}\n')
-                logger.info(f'Amount wagered for {league_name}: ${wagered}')
-                messages.append(f'Amount earned for {league_name}: ${earnings}\n')
-                logger.info(f'Amount earned for {league_name}: ${earnings}')
-                messages.append(f'Profit for {league_name}: ${earnings-wagered}\n')
-                logger.info(f'Profit for {league_name}: ${earnings-wagered}')
+                    updates.append((fthg, ftag, ftr, res, gl, profit, yield_, updated_at, game_id))
+                    messages.append(f"Results for {bet[1]} - {bet[2]}: Score: {fthg}-{ftag} | My bet: {bet[3]} | Status: {bet[8]} | Odds: {bet[5]} | Bookmaker: {bet[6]} | Result: {res} | Stake: ${bet[4]} | G/L: ${gl} | Profit: ${profit} | Yield: {yield_}%\n")
+                    logger.info(f"Results for {bet[1]} - {bet[2]}: Score: {fthg}-{ftag} | My bet: {bet[3]} | Status: {bet[8]} | Odds: {bet[5]} | Bookmaker: {bet[6]} | Result: {res} | Stake: ${bet[4]} | G/L: ${gl} | Profit: ${profit} | Yield: {yield_}%")
 
-                strat_config[league_name]['bankroll'] += earnings
+                messages.append(f'Amount wagered for {league_name}: ${wagered:.2f}')
+                logger.info(f'Amount wagered for {league_name}: ${wagered:.2f}')
+                messages.append(f'Amount earned for {league_name}: ${earnings:.2f}')
+                logger.info(f'Amount earned for {league_name}: ${earnings:.2f}')
+                messages.append(f'Profit for {league_name}: ${(sum_profit):.2f}')
+                logger.info(f'Profit for {league_name}: ${(sum_profit):.2f}')
+
+                strat_config[league]['bankroll'] += earnings
+                strat_config[league]['bankroll'] = round(strat_config[league]['bankroll'], 2)
                 update_config(strat_config, config_path)
-                messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}")
+                messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}\n")
                 logger.info(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}")
 
                 file_path = f'{BANKROLL_DIR}/{season}/{league}_bankroll.csv'
                 output_path = f'{BANKROLL_DIR}/{season}/charts/{league}_bankroll.png'
-                record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today)
+                record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today_dt)
                 generate_chart(file_path, output_path, league=league_name, season=season)
 
                 total_wagered += wagered
                 total_earnings += earnings
+                total_profit += sum_profit
 
                 execute_many(update_match_ratings, updates)
-                
                 delete_some(delete_some_from_upcoming_games_query, (league, today))
             
             if len(bets) > 0:
                 file_path = f'{BANKROLL_DIR}/{season}/Consolidated_bankroll.csv'
                 output_path = f'{BANKROLL_DIR}/{season}/charts/Consolidated_bankroll.png'
-                final_bk = consolidated_starting+total_earnings
-                record_bankroll(consolidated_starting, final_bk, file_path, today)
+                final_bk = round(consolidated_starting+total_earnings, 2)
+                record_bankroll(consolidated_starting, final_bk, file_path, today_dt)
                 generate_chart(file_path, output_path, league='Consolidated', season=season)
 
-                messages.append(f'Total amount wagered: ${total_wagered}\n')
-                logger.info(f'Total amount wagered: ${total_wagered}')
-                messages.append(f'Total amount earned: ${total_earnings}\n')
-                logger.info(f'Total amount earned: ${total_earnings}')
-                messages.append(f'Total profit: ${total_earnings-total_wagered}\n\n')
-                logger.info(f'Total profit: ${total_earnings-total_wagered}')
+                messages.append(f'Total amount wagered: ${total_wagered:.2f}')
+                logger.info(f'Total amount wagered: ${total_wagered:.2f}')
+                messages.append(f'Total amount earned: ${total_earnings:.2f}')
+                logger.info(f'Total amount earned: ${total_earnings:.2f}')
+                messages.append(f'Total profit: ${(total_profit):.2f}\n')
+                logger.info(f'Total profit: ${(total_profit):.2f}')
 
-                messages.append(f"Consolidated starting bankroll: ${consolidated_starting}\n")
-                logger.info(f"Consolidated starting bankroll: ${consolidated_starting}")
-                messages.append(f"Consolidated ending bankroll: ${final_bk}\n")
-                logger.info(f"Consolidated ending bankroll: ${final_bk}")
+                messages.append(f"Consolidated starting bankroll: ${consolidated_starting:.2f}")
+                logger.info(f"Consolidated starting bankroll: ${consolidated_starting:.2f}")
+                messages.append(f"Consolidated ending bankroll: ${final_bk:.2f}\n")
+                logger.info(f"Consolidated ending bankroll: ${final_bk:.2f}")
                 
             # delete_all(delete_all_from_upcoming_games_query)
             send_email(messages, subject, logger)
