@@ -30,7 +30,7 @@ def send_email(messages, subject, logger: Logger, attachments=None):
                 email_msg = MIMEMultipart()
                 email_msg['Subject'] = subject
                 email_msg['From'] = EMAIL_ADDRESS
-                recipients = [PERSONAL_EMAIL, EMAIL_SMS]
+                recipients = [PERSONAL_EMAIL]
                 email_msg['To'] = ', '.join(recipients)
 
                 # Add the message body to the email

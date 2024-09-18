@@ -106,7 +106,7 @@ def main(args):
                 messages.append(f"{league_name} starting bankroll: ${starting_bk}\n")
                 
                 if len(games) > 0:
-                    games_headlines = '\n'.join([f"{game['home_team']} - {game['away_team']}" for game in games])
+                    games_headlines = '\n'.join([f"{game[3]} - {game[4]}" for game in games])
                     logger.info(f'Games for {league_name}: \n{games_headlines}')
 
                     betting_bot.simulate_human_behavior()
@@ -125,13 +125,13 @@ def main(args):
 
                 for game in games:
                     game_url = filter(lambda game_: game_['home']==game[3] and game_['away']==game[4], games_url)[0]
-                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, game_id=game['game_id'])
+                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, game_id=game[0])
                     logger.info(f"{bookmaker} odds for {game[3]} - {game[4]}: H: {home_odds} | D: {draw_odds} | A: {away_odds}")
 
-                    home_proba, draw_proba, away_proba = float(Decimal(1./home_odds)), float(Decimal(1./draw_odds)), float(Decimal(1./away_odds))
-                    logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100:.2f}% | D: {draw_proba*100:.2f}% | A: {away_proba*100:.2f}%")
+                    home_proba, draw_proba, away_proba = round(float(Decimal(1./home_odds)), 2), round(float(Decimal(1./draw_odds)), 2), round(float(Decimal(1./away_odds)), 2)
+                    logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100}% | D: {draw_proba*100}% | A: {away_proba*100}%")
 
-                    vig = calculate_vig(Decimal(home_proba), Decimal(draw_proba), Decimal(away_proba))*100
+                    vig = float(calculate_vig(home_proba, draw_proba, away_proba))*100
                     logger.info(f"{bookmaker} vig for {game[3]} - {game[4]}: {vig}%")
 
                     strategy = strategy_factory.select_strategy(betting_strategy, data, league, strat_config, staking_strategy, home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds, season=season)
@@ -144,7 +144,7 @@ def main(args):
                     
                     status = get_status(betting_bot, bookmaker, values, game_url, game[0], logger)
 
-                    if status == 'SUCCES':
+                    if status == 'SUCCESS':
                         placed += 1
 
                     match betting_strategy:
@@ -236,7 +236,7 @@ def get_status(betting_bot: BettingBot, bookmaker, values, game_url, game_id, lo
                 logger.info(f"Original stake of ${values['stake']} too high as per {bookmaker} limits. Updating to ${max_stake}")
                 values['stake'] = max_stake
 
-            success = betting_bot.place_bet(values['bet'], values['stake'], values['bet'], game_url, min_stake, logger, today=today, game=game_id)
+            success = betting_bot.place_bet(values['bet_odds'], values['stake'], values['bet'], game_url, min_stake, logger)
             if success:
                 status = 'SUCCESS'
         else:
