@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import sys 
+
 from logging import Logger
 from datetime import datetime
 
@@ -88,7 +90,7 @@ def main(args):
 
                 bets = {bet[0]: bet for bet in bets}
                 
-                starting_bk = strat_config[league]['bankroll']
+                starting_bk = round(strat_config[league]['bankroll'], 2)
 
                 messages.append(f"{league_name} starting bankroll: ${starting_bk}\n")
 
@@ -195,7 +197,12 @@ def main(args):
             print('Unknown betting strategy or empty strategies list from config')
             exit(1)
     except Exception as e:
-        logger.error(e)
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+        e_line_number = e_traceback.tb_lineno
+        logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
         logger.info('Mission accomplished.')
 

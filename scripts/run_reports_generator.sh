@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 betting_strategy"
+    echo "Usage: $0 <betting_strategy>"
     exit 1
 fi
 

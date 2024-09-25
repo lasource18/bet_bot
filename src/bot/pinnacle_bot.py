@@ -88,22 +88,27 @@ class PinnacleBettingBot(BettingBot):
     
     def get_game_urls(self, league, logger, **kwargs):
         try:
+            today_ = kwargs.get('today', today)
             params = {'brandId': 0}
             response = self.session.get(f'{self.base_url}/leagues/{league}/matchups', headers=self.headers, params=params)
             data = response.json()
 
             with open(f'{self.responses_directory_path}/get_game_urls_{league}.json', 'w') as f:
-                json.dump(data, f)
+                json.dump({'data': data}, f)
 
             response.raise_for_status()
 
             games = [value['parent'] for value in data]
             games = [game for game in games if game is not None]
+            games_ids = [game['id'] for game in games if game is not None]
+            potentially_missed_games = [{'id': value['id'], 'participants': value['participants'], 'startTime': value['startTime']} for value in data if value['id'] not in games_ids and value['parlayRestriction']=='unique_matchups']
+            print('Missed games:', potentially_missed_games)
+            games.extend(potentially_missed_games)
         
-            today_games = [game for game in games if datetime.fromisoformat(game['startTime']).astimezone(ZoneInfo("America/New_York")).strftime('%Y-%m-%d') == today]
+            today_games = [game for game in games if datetime.fromisoformat(game['startTime']).astimezone(ZoneInfo("America/New_York")).strftime('%Y-%m-%d') == today_]
             unique_games = {game['id']: game for game in today_games}
             games_filtered = list(unique_games.values())
-            games_urls  =[{'id': game['id'], 'startTime': game['startTime'], 'url': f"{self.base_url}/matchups/{game['id']}/markets/related/straight", 'home': game['participants'][0]['name'], 'away': game['participants'][1]['name']} for game in games_filtered]
+            games_urls = [{'id': game['id'], 'startTime': game['startTime'], 'url': f"{self.base_url}/matchups/{game['id']}/markets/related/straight", 'home': game['participants'][0]['name'], 'away': game['participants'][1]['name']} for game in games_filtered]
         except requests.HTTPError as http_err:
             logger.error(f"Failed to retrieve games for date {today} | HTTP error occurred: {http_err} ")
             return []
@@ -126,7 +131,7 @@ class PinnacleBettingBot(BettingBot):
             data = response.json()
 
             with open(f'{self.responses_directory_path}/check_odds_{game_id}.json', 'w') as f:
-                json.dump(data, f)
+                json.dump({'data': data}, f)
             
             response.raise_for_status()
 

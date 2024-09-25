@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 import os
 import csv
 from datetime import datetime, timedelta
@@ -25,6 +26,7 @@ RAPIDAPI_HOST = os.environ["RAPIDAPI_HOST"]
 DB_FILE = os.environ["DB_FILE"]
 SQL_PROPERTIES = os.environ["SQL_PROPERTIES"]
 CONFIG_FILE = os.environ["CONFIG_FILE"]
+MAPPINGS_FILE = os.environ["MAPPINGS_FILE"]
 LOGS = os.environ["LOGS"]
 REPORTS_DIR = os.environ["REPORTS_DIR"]
 RESPONSES_DIR = os.environ["RESPONSES_DIR"]
@@ -144,10 +146,12 @@ def generate_chart(csv_file, output_file, **kwargs):
     # Close the plot to prevent it from displaying
     plt.close()
 
-def fetch_upcoming_games(league, date, season):
+def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
     try:
         fixtures = []
         insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data.replace('\"', '')
+        check_upcoming_games = configs.get('CHECK_UPCOMING_GAMES').data.replace('\"', '')
+        upcoming_games_ids = load_many(check_upcoming_games, date, league_code)
 
         params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
         response = requests.get(url, headers=headers, params=params)
@@ -161,21 +165,41 @@ def fetch_upcoming_games(league, date, season):
             dateutil.parser.parse(fixture['fixture']['date']).strftime('%Y-%m-%d'), 
             fixture['teams']['home']['name'],
             fixture['teams']['away']['name'],
+            season,
+            league_code,
             fixture['league']['name'],
             fixture['league']['round'].split(" - ")[-1],
-            ) for fixture in data['response']
+            ) for fixture in data['response'] if int(fixture['fixture']['id']) not in upcoming_games_ids
         ]
 
     except requests.HTTPError as http_err:
-        print(f"Login failed | HTTP error occurred: {http_err}")
+        logger.error(f"fetch_upcoming_games failed | HTTP error occurred: {http_err}")
     except RetryError as retry_err:
-        print(f"Login failed | Retry Error: {retry_err}")
+        logger.error(f"fetch_upcoming_games failed | Retry Error: {retry_err}")
     except Exception as err:
-        print(f"fetch_today_games_results(): Other error occurred: {err}")
+        logger.error(f"fetch_upcoming_games(): Other error occurred: {err}")
     else:
         if len(fixtures) > 0:
             execute_many(insert_into_upcoming_games, fixtures)
             return True
+        
+def map_from_rapidapi_to_bookmaker(home, away, league, bookmaker):
+    config_ = read_config(MAPPINGS_FILE)
+    values = config_.get(f'rapidapi_to_{bookmaker}', {}).get(league, {})
+
+    if not values:
+        raise ValueError('League values are is missing from mappings file.')
+    
+    return values.get(home, home), values.get(away, away)
+
+def map_from_rapidapi_to_hist_data(home, away, league):
+    config_ = read_config(MAPPINGS_FILE)
+    values: dict = config_.get(f'rapidapi_to_hist_data').get(league, {})
+
+    if not values:
+        raise ValueError('League values are is missing from mappings file.')
+    
+    return values.get(home, home), values.get(away, away)
 
 def load_one(q, *args):
     return db.load_one(q, *args)

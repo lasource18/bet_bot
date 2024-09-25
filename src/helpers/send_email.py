@@ -1,5 +1,7 @@
-from logging import Logger
 import os
+import sys
+
+from logging import Logger
 from dotenv import load_dotenv
 
 from datetime import datetime
@@ -52,4 +54,6 @@ def send_email(messages, subject, logger: Logger, attachments=None):
 
                 logger.info(f'Sent email notification')
             except Exception as e:
-                logger.error(e)
+                e_type, e_object, e_traceback = sys.exc_info()
+                e_line_number = e_traceback.tb_lineno
+                logger.error(f'{e}, line: {e_line_number}')

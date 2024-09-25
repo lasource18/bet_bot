@@ -2,7 +2,7 @@
 
 # Check if the correct number of arguments is passed
 if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 directory crawler"
+    echo "Usage: $0 <directory> <crawler>"
     exit 1
 fi
 

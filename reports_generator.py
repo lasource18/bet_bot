@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import sys
+import os
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -254,12 +256,17 @@ def main(args):
             messages = [f'Current win rate: {wr}%\n\n', 'Reports attached herein:\n']
             files = get_files_list(f'{REPORTS_DIR}/{betting_strategy}')
 
-            send_email(subject, messages, logger, files)
+            send_email(messages, subject, logger, files)
         else:
             print('Unknown betting strategy or empty strategies list from config')
             exit(1)
     except Exception as e:
-        logger.error(e)
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+        e_line_number = e_traceback.tb_lineno
+        logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
         logger.info(f'Successfully generated all the reports.')
 

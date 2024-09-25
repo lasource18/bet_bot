@@ -2,6 +2,7 @@
 
 import subprocess
 import os
+import sys
 
 from datetime import datetime
 from decimal import getcontext, Decimal
@@ -23,6 +24,7 @@ with open(SQL_PROPERTIES, 'rb') as config_file:
 
 insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data.replace('\"', '')
 select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data.replace('\"', '')
+bets_ids = configs.get('CHECK_MATCH_RATINGS').data.replace('\"', '')
 
 today = datetime.now().strftime('%Y-%m-%d')
 
@@ -86,7 +88,7 @@ def main(args):
             for league, league_id in leagues.items():
                 league_name = strat_config[league]['name']
 
-                if not fetch_upcoming_games(league_id, today, season):
+                if not fetch_upcoming_games(league_id, league, today, season, logger):
                     logger.info(f'No game found for {league_name}')
                     messages.append(f'No game found for {league_name}\n')
                     continue
@@ -100,7 +102,7 @@ def main(args):
                 
                 games = load_many(select_upcoming_games_query, today, league)
 
-                starting_bk = curr_bal = strat_config[league]['bankroll']
+                starting_bk = curr_bal = round(strat_config[league]['bankroll'], 2)
 
                 logger.info(f"Starting bankroll for {league_name}: ${starting_bk}")
                 messages.append(f"{league_name} starting bankroll: ${starting_bk}\n")
@@ -116,7 +118,7 @@ def main(args):
                     messages.append(f"{'-' * (len(league_name)+6)}\n")
                     messages.append(games_headlines+'\n')
                 else:
-                    logger.info(f'Failed to retrieve upcoming games from DB for {league}')
+                    logger.warning(f'Failed to retrieve upcoming games from DB for {league}')
                     messages.append(f'Failed to retrieve upcoming games from DB for {league}\n')
                     continue
 
@@ -124,25 +126,39 @@ def main(args):
                 consolidated = 0
 
                 for game in games:
-                    game_url = filter(lambda game_: game_['home']==game[3] and game_['away']==game[4], games_url)[0]
-                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url, logger, game_id=game[0])
-                    logger.info(f"{bookmaker} odds for {game[3]} - {game[4]}: H: {home_odds} | D: {draw_odds} | A: {away_odds}")
+                    if int(game[0]) in bets_ids:
+                        logger.info(f"Bet for {game[3]} - {game[4]} already placed")
+                        messages.append(f"Bet for {game[3]} - {game[4]} already placed")
+                        continue
+                    
+                    home_, away_ = map_from_rapidapi_to_bookmaker(game[3], game[4], league, bookmaker)
+                    game_url = list(filter(lambda game_: game_['home']==home_ and game_['away']==away_, games_url))[0]
+                    home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url['url'], logger, game_id=game[0])
+                    logger.info(f"{bookmaker} odds for {game[3]} - {game[4]}: H: {home_odds:.2f} | D: {draw_odds:.2f} | A: {away_odds:.2f}")
 
                     home_proba, draw_proba, away_proba = round(float(Decimal(1./home_odds)), 2), round(float(Decimal(1./draw_odds)), 2), round(float(Decimal(1./away_odds)), 2)
-                    logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100}% | D: {draw_proba*100}% | A: {away_proba*100}%")
+                    logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100:.2f}% | D: {draw_proba*100:.2f}% | A: {away_proba*100:.2f}%")
 
                     vig = float(calculate_vig(home_proba, draw_proba, away_proba))*100
-                    logger.info(f"{bookmaker} vig for {game[3]} - {game[4]}: {vig}%")
+                    logger.info(f"{bookmaker} vig for {game[3]} - {game[4]}: {vig:.2f}%")
 
                     strategy = strategy_factory.select_strategy(betting_strategy, data, league, strat_config, staking_strategy, home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds, season=season)
                     
                     try:
-                        values = strategy.compute(game[3], game[4], betting_strategy, logger)
+                        home_, away_ = map_from_rapidapi_to_hist_data(game[3], game[4], league)
+                        values = strategy.compute(home_, away_, betting_strategy, logger)
                     except ValueError as err:
-                        logger.error(err)
+                        e_type, e_object, e_traceback = sys.exc_info()
+                        e_line_number = e_traceback.tb_lineno
+                        logger.error(f'ValueError in strategy.compute(): {err}, line: {e_line_number}')
+                        continue
+                    except IndexError as ind_err:
+                        e_type, e_object, e_traceback = sys.exc_info()
+                        e_line_number = e_traceback.tb_lineno
+                        logger.error(f'IndexError in strategy.compute(): {ind_err}, line: {e_line_number}')
                         continue
                     
-                    status = get_status(betting_bot, bookmaker, values, game_url, game[0], logger)
+                    status = get_status(betting_bot, bookmaker, values, game_url, logger)
 
                     if status == 'SUCCESS':
                         placed += 1
@@ -220,11 +236,16 @@ def main(args):
             print('Unknown betting strategy or empty strategies list from config')
             exit(1)
     except Exception as e:
-        logger.error(e)
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+        e_line_number = e_traceback.tb_lineno
+        logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
         logger.info('Mission accomplished.')
 
-def get_status(betting_bot: BettingBot, bookmaker, values, game_url, game_id, logger):
+def get_status(betting_bot: BettingBot, bookmaker, values, game_url, logger):
     min_stake, max_stake = betting_bot.get_max_min_stake(game_url, values['bet'], values['bet_odds'], logger, today=today)
     if values['stake'] >= min_stake and values['flag']:
         betting_bot.simulate_human_behavior() 
