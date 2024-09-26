@@ -20,6 +20,8 @@ cursor.execute("""
             league_code TEXT NOT NULL, 
             league_name TEXT NOT NULL, 
             round TEXT NOT NULL,
+            home_rank INTEGER NOT NULL,
+            away_rank INTEGER NOT NULL,
             created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S.%f', 'now', 'localtime')),
             updated_at DATETIME NULL
     );
@@ -35,6 +37,8 @@ cursor.execute("""
                league_code INTEGER NOT NULL, 
                league_name TEXT NOT NULL, 
                round INTEGER NOT NULL,
+               home_rank INTEGER NOT NULL,
+               away_rank INTEGER NOT NULL,
                fthg INTEGER NULL,
                ftag INTEGER NULL,
                ftr TEXT NULL,

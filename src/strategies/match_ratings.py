@@ -37,7 +37,7 @@ class MatchRatingsStrategy(Strategy):
         home_win_coeffs, away_win_coeffs = get_coeffs(self.strat_config, self.league)
         self.hwtp = (Decimal(home_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(home_win_coeffs['constant'])) / Decimal(100.)
         self.awtp = (Decimal(away_win_coeffs['beta_squared_coeff']) * Decimal(self.match_rating**2) + Decimal(away_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(away_win_coeffs['constant'])) / Decimal(100.)
-        self.dtp = round(float(Decimal(1.) - (self.hwtp + self.awtp)), 2)
+        self.dtp = Decimal(1.) - (self.hwtp + self.awtp)
         
         if self.hwtp > 0:
             self.hwto = float(Decimal(1.) / Decimal(self.hwtp))
@@ -95,9 +95,9 @@ class MatchRatingsStrategy(Strategy):
             Bet: {self.bet}""")
 
         return {
-            'home_rating': float(self.home_rating),
-            'away_rating': float(self.away_rating),
-            'match_rating': float(self.match_rating),
+            'home_rating': self.home_rating,
+            'away_rating': self.away_rating,
+            'match_rating': self.match_rating,
             'hwto': self.hwto,
             'tdo': self.tdo,
             'awto': self.awto,
@@ -113,8 +113,8 @@ class MatchRatingsStrategy(Strategy):
             'bet': self.bet,
             'bet_odds': self.bet_odds,
             'value': self.value,
-            'stake': self.stake,
-            'flag': True if (self.bet == 'home' and (0< self.value < 1) and self.stake > 0) else False
+            'stake': round(self.stake, 1),
+            'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 0) else False
         }
     
 def get_coeffs(strat_config: dict, league: str):

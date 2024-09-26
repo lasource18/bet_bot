@@ -64,11 +64,11 @@ class PinnacleBettingBot(BettingBot):
             return True
     
     def check_balance(self, logger, **kwargs):
-        balance_url = f"{self.base_url}/wallet/balance"
-        response = self.session.get(balance_url, headers=self.headers)
-        balance = 0
-
         try:
+            balance = 0
+
+            balance_url = f"{self.base_url}/wallet/balance"
+            response = self.session.get(balance_url, headers=self.headers)
             data = response.json()
 
             with open(f'{self.responses_directory_path}/check_balance.json', 'w') as f:
@@ -82,8 +82,9 @@ class PinnacleBettingBot(BettingBot):
             logger.error(f"Failed to check balance | Retry Error: {retry_err}")
         except Exception as err:
             logger.error(f"check_balance(): Other error occurred: {err}")
-        finally:
+        else:
             logger.info(f'Current balance: {balance}')
+        finally:
             return balance
     
     def get_game_urls(self, league, logger, **kwargs):
@@ -102,7 +103,6 @@ class PinnacleBettingBot(BettingBot):
             games = [game for game in games if game is not None]
             games_ids = [game['id'] for game in games if game is not None]
             potentially_missed_games = [{'id': value['id'], 'participants': value['participants'], 'startTime': value['startTime']} for value in data if value['id'] not in games_ids and value['parlayRestriction']=='unique_matchups']
-            print('Missed games:', potentially_missed_games)
             games.extend(potentially_missed_games)
         
             today_games = [game for game in games if datetime.fromisoformat(game['startTime']).astimezone(ZoneInfo("America/New_York")).strftime('%Y-%m-%d') == today_]
@@ -124,7 +124,7 @@ class PinnacleBettingBot(BettingBot):
         
     def check_odds(self, url, logger, **kwargs):
         try:
-            odds = 0
+            odds = 0., 0., 0.
             game_id = kwargs.get('game_id', random.randint(0, 999_999))
 
             response = self.session.get(url, headers=self.headers)
@@ -145,12 +145,14 @@ class PinnacleBettingBot(BettingBot):
             logger.error(f"Failed to retrieve the odds | Retry Error: {retry_err}")
         except Exception as err:
             logger.error(f"check_odds(): Other error occurred: {err}")
-        else:
+        finally:
             return odds
     
     def get_max_min_stake(self, game_info, selection, odds, logger, **kwargs):
         try:
-            logger = kwargs['logger']
+            min_stake = 1
+            max_stake = 10_000
+
             game_id = game_info['id']
 
             url = f"{self.base_url}/bets/straight/quote"
@@ -168,9 +170,6 @@ class PinnacleBettingBot(BettingBot):
             
             with open(f'{self.responses_directory_path}/get_min_max_stake_{game_id}.json', 'w') as f:
                 json.dump(data, f)
-
-            min_stake = 1
-            max_stake = 10_000
             
             response.raise_for_status()
 
@@ -188,6 +187,7 @@ class PinnacleBettingBot(BettingBot):
             logger.error(f"get_min_stake(): Other error occurred: {err}")
         else:
             logger.info(f"Minimum stake for game {game_info['home']} - {game_info['away']}: {min_stake}")
+        finally:
             return min_stake, max_stake
         
     def place_bet(self, odds, stake, outcome, game_info, min_stake, logger, **kwargs):

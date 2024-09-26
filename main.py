@@ -24,6 +24,7 @@ with open(SQL_PROPERTIES, 'rb') as config_file:
 
 insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data.replace('\"', '')
 select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data.replace('\"', '')
+delete_from_match_ratings_query = configs.get('DELETE_SOME_FROM_MATCH_RATINGS').data.replace('\"', '')
 bets_ids = configs.get('CHECK_MATCH_RATINGS').data.replace('\"', '')
 
 today = datetime.now().strftime('%Y-%m-%d')
@@ -85,12 +86,14 @@ def main(args):
             total_staked = 0
             placed = 0
 
+            bets_ids = {bet[0]: bet[1] for bet in bets_ids}
+
             for league, league_id in leagues.items():
                 league_name = strat_config[league]['name']
 
                 if not fetch_upcoming_games(league_id, league, today, season, logger):
-                    logger.info(f'No game found for {league_name}')
-                    messages.append(f'No game found for {league_name}\n')
+                    logger.info(f'No game(s) found for {league_name}')
+                    messages.append(f'No game(s) found for {league_name}\n')
                     continue
 
                 data = read_csv_file(os.path.join(HIST_DATA_PATH, f'{season}/{league}.csv'))
@@ -126,10 +129,20 @@ def main(args):
                 consolidated = 0
 
                 for game in games:
-                    if int(game[0]) in bets_ids:
-                        logger.info(f"Bet for {game[3]} - {game[4]} already placed")
-                        messages.append(f"Bet for {game[3]} - {game[4]} already placed")
-                        continue
+                    if game[0] in bets_ids.keys():
+                        bet_status = bets_ids.get(game[0], None)
+                        if bet_status == 'SUCCESS':
+                            logger.info(f"Bet for {game[3]} - {game[4]} already placed")
+                            messages.append(f"Bet for {game[3]} - {game[4]} already placed")
+                            continue
+                        elif bet_status == 'FAILED':
+                            delete_some(delete_from_match_ratings_query, game[0])
+                            logger.info(f"Bet for {game[3]} - {game[4]} failed will re-attempt it")
+                            messages.append(f"Bet for {game[3]} - {game[4]} failed will re-attempt it")
+                        else:
+                            logger.info(f"Bet for {game[3]} - {game[4]} was not placed because {bet_status}")
+                            messages.append(f"Bet for {game[3]} - {game[4]} was not placed because {bet_status}")
+                            continue
                     
                     home_, away_ = map_from_rapidapi_to_bookmaker(game[3], game[4], league, bookmaker)
                     game_url = list(filter(lambda game_: game_['home']==home_ and game_['away']==away_, games_url))[0]
@@ -139,7 +152,7 @@ def main(args):
                     home_proba, draw_proba, away_proba = round(float(Decimal(1./home_odds)), 2), round(float(Decimal(1./draw_odds)), 2), round(float(Decimal(1./away_odds)), 2)
                     logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100:.2f}% | D: {draw_proba*100:.2f}% | A: {away_proba*100:.2f}%")
 
-                    vig = float(calculate_vig(home_proba, draw_proba, away_proba))*100
+                    vig = calculate_vig(home_proba, draw_proba, away_proba)*100
                     logger.info(f"{bookmaker} vig for {game[3]} - {game[4]}: {vig:.2f}%")
 
                     strategy = strategy_factory.select_strategy(betting_strategy, data, league, strat_config, staking_strategy, home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds, season=season)
@@ -174,6 +187,8 @@ def main(args):
                                 league, 
                                 league_name,
                                 game[2],
+                                game[5],
+                                game[6],
                                 None,
                                 None,
                                 None,
@@ -228,8 +243,8 @@ def main(args):
 
                 execute_many(insert_new_bets_query, bets)
             
-            messages.append(f'Total: {placed} bets placed\n')
-            logger.info(f'Total: {placed} bets placed')
+            messages.append(f'Total: {placed} bet(s) placed\n')
+            logger.info(f'Total: {placed} bet(s) placed')
             
             send_email(messages, subject, logger)
         else:

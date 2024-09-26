@@ -4,6 +4,7 @@ import os
 import csv
 from datetime import datetime, timedelta
 from decimal import ROUND_DOWN, Decimal, getcontext
+from typing import Dict, List
 
 import dateutil
 import requests
@@ -39,8 +40,6 @@ DEVICE_UUID = os.environ['DEVICE_UUID']
 configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
     configs.load(config_file)
-
-url = f"https://{RAPIDAPI_HOST}/v3/fixtures"
 
 headers = {
 	"x-rapidapi-key": API_KEY,
@@ -148,17 +147,42 @@ def generate_chart(csv_file, output_file, **kwargs):
 
 def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
     try:
+        def fetch_teams_rank():
+            try:
+                url = f"https://{RAPIDAPI_HOST}/v3/standings"
+                params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
+                res = requests.get(url, headers=headers, params=params)
+
+                data = res.json()
+
+                res.raise_for_status()
+
+                teams: List[dict] = data['response'][0]['league']['standings'][0]
+                teams_rank: Dict[str, str] = {team['team']['name']: team['rank'] for team in teams}
+            except requests.HTTPError as http_err:
+                logger.error(f"fetch_teams_rank failed | HTTP error occurred: {http_err}")
+            except RetryError as retry_err:
+                logger.error(f"fetch_teams_rank failed | Retry Error: {retry_err}")
+            except Exception as err:
+                logger.error(f"fetch_teams_rank(): Other error occurred: {err}")
+            else:
+                return teams_rank
+            
+        teams_rank = fetch_teams_rank()
         fixtures = []
         insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data.replace('\"', '')
         check_upcoming_games = configs.get('CHECK_UPCOMING_GAMES').data.replace('\"', '')
         upcoming_games_ids = load_many(check_upcoming_games, date, league_code)
 
-        params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
+        url = f"https://{RAPIDAPI_HOST}/v3/fixtures"
+        params = {"league":league,"season":season.split('-')[0]}
         response = requests.get(url, headers=headers, params=params)
 
         # print(response.json())
 
         data = response.json()
+
+        response.raise_for_status()
 
         fixtures = [
             (fixture['fixture']['id'],
@@ -169,6 +193,8 @@ def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
             league_code,
             fixture['league']['name'],
             fixture['league']['round'].split(" - ")[-1],
+            teams_rank[fixture['teams']['home']['name']],
+            teams_rank[fixture['teams']['away']['name']]
             ) for fixture in data['response'] if int(fixture['fixture']['id']) not in upcoming_games_ids
         ]
 
