@@ -127,7 +127,7 @@ def main(args):
                         logger.warning(f'Game with id={game_id} is not found in bets table for {league}')
                         continue
 
-                    gl = float(Decimal(bet[4]) * Decimal(bet[5]))if ftr == bet[3] else 0
+                    gl = float(Decimal(bet[4]) * Decimal(bet[5])) if ftr == bet[3] else 0
 
                     profit = float(Decimal(gl) - Decimal(bet[4])) if gl > 0 else -bet[4]
 

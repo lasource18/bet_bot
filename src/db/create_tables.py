@@ -55,7 +55,7 @@ cursor.execute("""
                away_rating INTEGER NOT NULL,
                match_rating INTEGER NOT NULL,
                hwto REAL NOT NULL,
-               dto REAL NOT NULL,
+               tdo REAL NOT NULL,
                awto REAL NOT NULL,
                hwtp REAL NOT NULL,
                dtp REAL NOT NULL,

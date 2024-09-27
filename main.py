@@ -25,7 +25,7 @@ with open(SQL_PROPERTIES, 'rb') as config_file:
 insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data.replace('\"', '')
 select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data.replace('\"', '')
 delete_from_match_ratings_query = configs.get('DELETE_SOME_FROM_MATCH_RATINGS').data.replace('\"', '')
-bets_ids = configs.get('CHECK_MATCH_RATINGS').data.replace('\"', '')
+check_match_ratings_query = configs.get('CHECK_MATCH_RATINGS').data.replace('\"', '')
 
 today = datetime.now().strftime('%Y-%m-%d')
 
@@ -86,8 +86,6 @@ def main(args):
             total_staked = 0
             placed = 0
 
-            bets_ids = {bet[0]: bet[1] for bet in bets_ids}
-
             for league, league_id in leagues.items():
                 league_name = strat_config[league]['name']
 
@@ -105,7 +103,12 @@ def main(args):
                 
                 games = load_many(select_upcoming_games_query, today, league)
 
+                bets_ids = execute(check_match_ratings_query, (league, today))
+
+                bets_ids = {bet[0]: bet[1] for bet in bets_ids} if bets_ids else {}
+
                 starting_bk = curr_bal = round(strat_config[league]['bankroll'], 2)
+                consolidated_starting += starting_bk
 
                 logger.info(f"Starting bankroll for {league_name}: ${starting_bk}")
                 messages.append(f"{league_name} starting bankroll: ${starting_bk}\n")
@@ -125,7 +128,6 @@ def main(args):
                     messages.append(f'Failed to retrieve upcoming games from DB for {league}\n')
                     continue
 
-                consolidated_starting += starting_bk
                 consolidated = 0
 
                 for game in games:
@@ -136,7 +138,7 @@ def main(args):
                             messages.append(f"Bet for {game[3]} - {game[4]} already placed")
                             continue
                         elif bet_status == 'FAILED':
-                            delete_some(delete_from_match_ratings_query, game[0])
+                            delete_some(delete_from_match_ratings_query, (game[0],))
                             logger.info(f"Bet for {game[3]} - {game[4]} failed will re-attempt it")
                             messages.append(f"Bet for {game[3]} - {game[4]} failed will re-attempt it")
                         else:
@@ -157,18 +159,12 @@ def main(args):
 
                     strategy = strategy_factory.select_strategy(betting_strategy, data, league, strat_config, staking_strategy, home_odds=home_odds, draw_odds=draw_odds, away_odds=away_odds, season=season)
                     
-                    try:
-                        home_, away_ = map_from_rapidapi_to_hist_data(game[3], game[4], league)
-                        values = strategy.compute(home_, away_, betting_strategy, logger)
-                    except ValueError as err:
-                        e_type, e_object, e_traceback = sys.exc_info()
-                        e_line_number = e_traceback.tb_lineno
-                        logger.error(f'ValueError in strategy.compute(): {err}, line: {e_line_number}')
-                        continue
-                    except IndexError as ind_err:
-                        e_type, e_object, e_traceback = sys.exc_info()
-                        e_line_number = e_traceback.tb_lineno
-                        logger.error(f'IndexError in strategy.compute(): {ind_err}, line: {e_line_number}')
+                    home_, away_ = map_from_rapidapi_to_hist_data(game[3], game[4], league)
+                    values = strategy.compute(home_, away_, betting_strategy, logger)
+
+                    if not values:
+                        logger.info(f"Computation for {game[3]} - {game[4]} failed because of an error in {betting_strategy} strategy module")
+                        messages.append(f"Computation for {game[3]} - {game[4]} failed because of an error in {betting_strategy} strategy module")
                         continue
                     
                     status = get_status(betting_bot, bookmaker, values, game_url, logger)
@@ -220,7 +216,7 @@ def main(args):
                     bets.append(final_values)
 
                     logger.info(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}")
-                    messages.append(f"{game['home']} - {game['away']}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}\n")
+                    messages.append(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}\n")
 
                 strat_config[league]['bankroll'] -= consolidated
                 update_config(strat_config, config_path)

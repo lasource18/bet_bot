@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source $BET_BOT_ENV_FILE
+source ~/Documents/Trading/Betting/Football/Python/bet_bot/.env
 
 if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <betting_strategy> <staking_strategy> <bookmaker>"
@@ -26,6 +26,6 @@ fi
 LOG_FILE="${DIR}/$(date '+%Y-%m-%d')_main_errors.log" 
 
 # Run the script with the provided period argument
-$PYTHON $MAIN_PYTHON_SCRIPT -B "$BETTING_STRATEGY" -S "$BETTING_STRATEGY" -K "$BOOKMAKER" &> "$LOG_FILE"
+$PYTHON $MAIN_PYTHON_SCRIPT -B "$BETTING_STRATEGY" -S "$STAKING_STRATEGY" -K "$BOOKMAKER" &> "$LOG_FILE"
 
 echo "Main has finished. Logs are saved to $LOG_FILE."

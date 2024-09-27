@@ -1,6 +1,7 @@
 import json
 from logging import Logger
 import os
+import sys
 import csv
 from datetime import datetime, timedelta
 from decimal import ROUND_DOWN, Decimal, getcontext
@@ -145,12 +146,12 @@ def generate_chart(csv_file, output_file, **kwargs):
     # Close the plot to prevent it from displaying
     plt.close()
 
-def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
+def fetch_upcoming_games(league: str, league_code: str, date: datetime, season: str, logger: Logger):
     try:
         def fetch_teams_rank():
             try:
                 url = f"https://{RAPIDAPI_HOST}/v3/standings"
-                params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
+                params = {"league":league,"season":season.split('-')[0]}
                 res = requests.get(url, headers=headers, params=params)
 
                 data = res.json()
@@ -173,9 +174,10 @@ def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
         insert_into_upcoming_games = configs.get('INSERT_INTO_UPCOMING_GAMES').data.replace('\"', '')
         check_upcoming_games = configs.get('CHECK_UPCOMING_GAMES').data.replace('\"', '')
         upcoming_games_ids = load_many(check_upcoming_games, date, league_code)
+        upcoming_games_ids = [game_id[0] for game_id in upcoming_games_ids] if upcoming_games_ids else []
 
         url = f"https://{RAPIDAPI_HOST}/v3/fixtures"
-        params = {"league":league,"season":season.split('-')[0]}
+        params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
         response = requests.get(url, headers=headers, params=params)
 
         # print(response.json())
@@ -198,16 +200,22 @@ def fetch_upcoming_games(league, league_code, date, season, logger: Logger):
             ) for fixture in data['response'] if int(fixture['fixture']['id']) not in upcoming_games_ids
         ]
 
+        if len(fixtures) > 0:
+            execute_many(insert_into_upcoming_games, fixtures)
+
     except requests.HTTPError as http_err:
         logger.error(f"fetch_upcoming_games failed | HTTP error occurred: {http_err}")
     except RetryError as retry_err:
         logger.error(f"fetch_upcoming_games failed | Retry Error: {retry_err}")
     except Exception as err:
-        logger.error(f"fetch_upcoming_games(): Other error occurred: {err}")
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+        e_line_number = e_traceback.tb_lineno
+        logger.error(f'fetch_upcoming_games(): {err}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
-        if len(fixtures) > 0:
-            execute_many(insert_into_upcoming_games, fixtures)
-            return True
+        return True
         
 def map_from_rapidapi_to_bookmaker(home, away, league, bookmaker):
     config_ = read_config(MAPPINGS_FILE)
@@ -232,6 +240,9 @@ def load_one(q, *args):
 
 def load_many(q, *args):
     return db.load_many(q, *args)
+
+def execute(q, data):
+    db.execute(q, data)
 
 def execute_many(q, data):
     db.execute_many(q, data)

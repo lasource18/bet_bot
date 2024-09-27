@@ -1,4 +1,5 @@
 from logging import Logger
+import sys
 import os
 from dotenv import load_dotenv
 
@@ -27,95 +28,108 @@ class MatchRatingsStrategy(Strategy):
         self.season = kwargs.get('season', '2024-2025')
 
     def compute(self, home: str, away: str, betting_strategy: str, logger: Logger):
-        getcontext().prec = 3
-        df = self.data.copy()
-        df.reset_index()
-        df = df[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG']]
-        lst = get_teams_list(df)
-        teams = group_data_by_teams(df, lst, self.league, self.season, f'{MISC_PATH}/{betting_strategy}')
-        self.home_rating, self.away_rating, self.match_rating = compute_ratings(teams, home, away)
-        home_win_coeffs, away_win_coeffs = get_coeffs(self.strat_config, self.league)
-        self.hwtp = (Decimal(home_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(home_win_coeffs['constant'])) / Decimal(100.)
-        self.awtp = (Decimal(away_win_coeffs['beta_squared_coeff']) * Decimal(self.match_rating**2) + Decimal(away_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(away_win_coeffs['constant'])) / Decimal(100.)
-        self.dtp = Decimal(1.) - (self.hwtp + self.awtp)
-        
-        if self.hwtp > 0:
-            self.hwto = float(Decimal(1.) / Decimal(self.hwtp))
-        else:
-            self.hwto = self.home_odds
+        try:
+            getcontext().prec = 3
 
-        if self.awtp > 0:
-            self.awto = float(Decimal(1.) / Decimal(self.awtp))
-        else:
-            self.awto = self.away_odds
+            r = {}
 
-        if self.dtp > 0:
-            self.tdo = float(Decimal(1.) / Decimal(self.dtp))
-        else:
-            self.tdo = self.draw_odds
-
-        self.hv = float(Decimal(self.hwtp) * Decimal(self.home_odds) - 1)
-        self.dv = float(Decimal(self.dtp) * Decimal(self.draw_odds) - 1)
-        self.av = float(Decimal(self.awtp) * Decimal(self.away_odds) - 1)
-
-        staking_factory = StakingFactory()
-        self.h = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.home_odds, value=self.hv).compute()
-        self.d = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.draw_odds, value=self.dv).compute()
-        self.a = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.away_odds, value=self.av).compute()
-        self.bet = get_value(self.possible_results, self.h, self.d, self.a)
-        self.bet_odds = self.home_odds if self.bet == 'home' else (self.away_odds if self.bet == 'away' else self.draw_odds)
-        self.value = max(self.hv, self.dv, self.av)
-        self.stake = max(self.h, self.d, self.a, 0)
-
-        logger.info(
-            f"""{betting_strategy}:
-            {home} - {away}
-            {'-' * (len(home)+len(away)+2)}
-
-            {home} rating: {self.home_rating}
-            {away} rating: {self.away_rating}
-            Match rating: {self.match_rating}
-
-            True Home Win Proba: {self.hwtp}
-            True Draw Proba: {self.dtp}
-            True Away Proba: {self.awtp}
-
-            True Home Win Odds: {self.hwto}
-            True Draw Win Odds: {self.tdo}
-            True Away Win Odds: {self.awto}
-
-            Home Win Value: {self.hv}
-            Draw Value: {self.dv}
-            Away Win Value: {self.av}
-
-            Home Win Stake: {self.h}
-            Draw Stake: {self.d}
-            Away Win Stake: {self.a}
+            df = self.data.copy()
+            df.reset_index()
+            df = df[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG']]
+            lst = get_teams_list(df)
+            teams = group_data_by_teams(df, lst, self.league, self.season, f'{MISC_PATH}/{betting_strategy}')
+            self.home_rating, self.away_rating, self.match_rating = compute_ratings(teams, home, away)
+            home_win_coeffs, away_win_coeffs = get_coeffs(self.strat_config, self.league)
+            self.hwtp = (Decimal(home_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(home_win_coeffs['constant'])) / Decimal(100.)
+            self.awtp = (Decimal(away_win_coeffs['beta_squared_coeff']) * Decimal(self.match_rating**2) + Decimal(away_win_coeffs['beta_coeff']) * Decimal(self.match_rating) + Decimal(away_win_coeffs['constant'])) / Decimal(100.)
+            self.dtp = Decimal(1.) - (self.hwtp + self.awtp)
             
-            Bet: {self.bet}""")
+            if self.hwtp > 0:
+                self.hwto = float(Decimal(1.) / Decimal(self.hwtp))
+            else:
+                self.hwto = self.home_odds
 
-        return {
-            'home_rating': self.home_rating,
-            'away_rating': self.away_rating,
-            'match_rating': self.match_rating,
-            'hwto': self.hwto,
-            'tdo': self.tdo,
-            'awto': self.awto,
-            'hwtp': round(float(self.hwtp), 2),
-            'dtp': round(float(self.dtp), 2),
-            'awtp': round(float(self.awtp), 2),
-            'hv': self.hv,
-            'dv': self.dv,
-            'av': self.av,
-            'h': self.h,
-            'd': self.d,
-            'a': self.a,
-            'bet': self.bet,
-            'bet_odds': self.bet_odds,
-            'value': self.value,
-            'stake': round(self.stake, 1),
-            'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 0) else False
-        }
+            if self.awtp > 0:
+                self.awto = float(Decimal(1.) / Decimal(self.awtp))
+            else:
+                self.awto = self.away_odds
+
+            if self.dtp > 0:
+                self.tdo = float(Decimal(1.) / Decimal(self.dtp))
+            else:
+                self.tdo = self.draw_odds
+
+            self.hv = float(Decimal(self.hwtp) * Decimal(self.home_odds) - 1)
+            self.dv = float(Decimal(self.dtp) * Decimal(self.draw_odds) - 1)
+            self.av = float(Decimal(self.awtp) * Decimal(self.away_odds) - 1)
+
+            staking_factory = StakingFactory()
+            self.h = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.home_odds, value=self.hv).compute()
+            self.d = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.draw_odds, value=self.dv).compute()
+            self.a = staking_factory.select_staking_strategy(self.strat_config[self.league]['bankroll'], self.staking_strategy, odds=self.away_odds, value=self.av).compute()
+            self.bet = get_value(self.possible_results, self.h, self.d, self.a)
+            self.bet_odds = self.home_odds if self.bet == 'home' else (self.away_odds if self.bet == 'away' else self.draw_odds)
+            self.value = max(self.hv, self.dv, self.av)
+            self.stake = max(self.h, self.d, self.a, 0)
+
+            logger.info(
+                f"""{betting_strategy}:
+                {home} - {away}
+                {'-' * (len(home)+len(away)+2)}
+
+                {home} rating: {self.home_rating}
+                {away} rating: {self.away_rating}
+                Match rating: {self.match_rating}
+
+                True Home Win Proba: {self.hwtp}
+                True Draw Proba: {self.dtp}
+                True Away Proba: {self.awtp}
+
+                True Home Win Odds: {self.hwto}
+                True Draw Win Odds: {self.tdo}
+                True Away Win Odds: {self.awto}
+
+                Home Win Value: {self.hv}
+                Draw Value: {self.dv}
+                Away Win Value: {self.av}
+
+                Home Win Stake: {self.h}
+                Draw Stake: {self.d}
+                Away Win Stake: {self.a}
+                
+                Bet: {self.bet}""")
+
+            r = {
+                'home_rating': self.home_rating,
+                'away_rating': self.away_rating,
+                'match_rating': self.match_rating,
+                'hwto': self.hwto,
+                'tdo': self.tdo,
+                'awto': self.awto,
+                'hwtp': round(float(self.hwtp), 3),
+                'dtp': round(float(self.dtp), 3),
+                'awtp': round(float(self.awtp), 3),
+                'hv': self.hv,
+                'dv': self.dv,
+                'av': self.av,
+                'h': self.h,
+                'd': self.d,
+                'a': self.a,
+                'bet': self.bet,
+                'bet_odds': self.bet_odds,
+                'value': self.value,
+                'stake': round(self.stake, 1),
+                'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 0) else False
+            }
+        except Exception as e:
+            e_type, e_object, e_traceback = sys.exc_info()
+            e_filename = os.path.split(
+                e_traceback.tb_frame.f_code.co_filename
+            )[1]
+            e_line_number = e_traceback.tb_lineno
+            logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
+        finally:
+            return r
     
 def get_coeffs(strat_config: dict, league: str):
     home_win_coeffs = strat_config[league]['home']
@@ -148,8 +162,10 @@ def group_data_by_teams(df: DataFrame, lst: List[str], league: str, curr_season:
     return teams
     
 def compute_ratings(teams: Dict[str, DataFrame], home, away):
-    home_rating = Decimal(teams[home]['Rolling Average'].iloc[-1])
-    away_rating = Decimal(teams[away]['Rolling Average'].iloc[-1])
+    # home_rating = Decimal(teams[home]['Rolling Average'].iloc[-1])
+    # away_rating = Decimal(teams[away]['Rolling Average'].iloc[-1])
+    home_rating = Decimal(teams[home]['Rating'].rolling(6).sum().iloc[-1])
+    away_rating = Decimal(teams[away]['Rating'].rolling(6).sum().iloc[-1])
 
     if math.isnan(home_rating) or math.isnan(away_rating):
         raise ValueError(f'Not enough data to execute match_ratings strategy for {home} - {away}. Home rating: {home_rating}, Away rating: {away_rating}')
