@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source $BET_BOT_ENV_FILE
+
 # Check if the correct number of arguments is passed
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <directory> <crawler>"
@@ -10,7 +12,7 @@ fi
 CRAWLER_DIR=$1
 CRAWLER_NAME=$2
 
-LOG_FILE="/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/logs/historical_data/$(date '+%Y-%m-%d')_historical_data.log"
+LOG_FILE="${HIST_DATA_LOG_PATH}/$(date '+%Y-%m-%d')_historical_data.log"
 
 # Check if the directory exists
 if [ ! -d "$CRAWLER_DIR" ]; then
@@ -20,8 +22,6 @@ fi
 
 # Change to the crawler directory
 cd "$CRAWLER_DIR" || exit
-
-SCRAPY="/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/venv/bin/scrapy"
 
 # Run the scrapy crawler and redirect output to the log file
 $SCRAPY crawl $CRAWLER_NAME &> "$LOG_FILE"

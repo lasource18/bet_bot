@@ -22,7 +22,7 @@ import db.db_utils as db
 
 load_dotenv(override=True)
 
-API_KEY = os.environ['X-RAPIDAPI-KEY']
+API_KEY = os.environ['X_RAPIDAPI_KEY']
 RAPIDAPI_HOST = os.environ["RAPIDAPI_HOST"]
 DB_FILE = os.environ["DB_FILE"]
 SQL_PROPERTIES = os.environ["SQL_PROPERTIES"]

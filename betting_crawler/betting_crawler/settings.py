@@ -14,6 +14,7 @@ import json
 load_dotenv(override=True)
 
 CONFIG_FILE = os.environ['CONFIG_FILE']
+ENV_FILES_STORE = os.environ['HIST_DATA_PATH']
 
 with open(CONFIG_FILE, 'r') as f:
    config = json.load(f)
@@ -22,7 +23,6 @@ BOT_NAME = "betting_crawler"
 
 SPIDER_MODULES = ["betting_crawler.spiders"]
 NEWSPIDER_MODULE = "betting_crawler.spiders"
-
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "betting_crawler (+http://www.yourdomain.com)"
@@ -79,7 +79,7 @@ ITEM_PIPELINES = {
    "betting_crawler.pipelines.HistoricalDataPipeline": 1
 }
 
-FILES_STORE = f"/Users/claude-micaelguinan/Documents/Trading/Betting/Football/Python/bet_bot/historical_data/{config['season']}"
+FILES_STORE = f"{ENV_FILES_STORE}/{config['season']}"
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html

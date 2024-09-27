@@ -27,6 +27,9 @@ class BettingCrawlerPipeline:
         )
 
     def process_item(self, item, spider):
+        if not os.path.exists(self.hist_data_dir):
+            os.makedirs(self.hist_data_dir)
+            
         zip_file_path = os.path.join(self.hist_data_dir, item['files'][0].get('path'))
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(self.hist_data_dir)
