@@ -1,9 +1,10 @@
+from fractions import Fraction
 import json
 from logging import Logger
 import os
 import sys
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_DOWN, Decimal, getcontext
 from typing import Dict, List
 
@@ -50,32 +51,74 @@ headers = {
 getcontext().prec = 4
 getcontext().rounding = ROUND_DOWN
 
-def american_to_decimal(american_odds):
+def convert_odds(odds, from_type, to_type):
+    """
+    Convert odds between American, Fractional, and Decimal formats.
+
+    :param odds: The odds to convert (int/float/str depending on the format).
+    :param from_type: The format of the input odds ('american', 'fraction', or 'decimal').
+    :param to_type: The desired output format ('american', 'fraction', or 'decimal').
+    :return: The converted odds in the desired format.
+    """
     getcontext().prec = 4
     getcontext().rounding = ROUND_DOWN
 
-    if american_odds == 0:
-        return 1.0
-    if american_odds > 0:
-        return (Decimal(american_odds) / Decimal(100)) + 1
-    else:
-        return (Decimal(100) / Decimal(abs(american_odds))) + 1
+    # Convert from American to Decimal
+    if from_type == 'american':
+        american_odds = Decimal(odds)
+        if american_odds > 0:
+            decimal_odds = (american_odds / 100) + 1
+        else:
+            decimal_odds = (100 / abs(american_odds)) + 1
+    
+    # Convert from Fractional to Decimal
+    elif from_type == 'fraction':
+        fraction_odds = Fraction(odds)
+        decimal_odds = fraction_odds.numerator / fraction_odds.denominator + 1
+    
+    # If already decimal
+    elif from_type == 'decimal':
+        decimal_odds = Decimal(odds)
 
-def decimal_to_american(decimal_odds):
-    getcontext().prec = 4
+    # Convert Decimal to the desired format
+    if to_type == 'decimal':
+        return round(decimal_odds, 2)
 
-    if decimal_odds == 1.0:
-        return 0
-    if decimal_odds >= 2.0:
-        return int((decimal_odds - 1) * 100)
+    elif to_type == 'american':
+        if decimal_odds >= 2:
+            american_odds = (decimal_odds - 1) * 100
+        else:
+            american_odds = -100 / (decimal_odds - 1)
+        return round(american_odds)
+
+    elif to_type == 'fraction':
+        fraction_odds = Fraction(decimal_odds - 1).limit_denominator(1000)
+        # return f"{fraction_odds.numerator}/{fraction_odds.denominator}"
+        return fraction_odds
+
     else:
-        return int(-100 / (decimal_odds - 1))
+        raise ValueError("Invalid conversion type. Use 'american', 'fraction', or 'decimal'.")
+
+# def american_to_decimal(american_odds):
+#     if american_odds == 0:
+#         return 1.0
+#     if american_odds > 0:
+#         return (Decimal(american_odds) / Decimal(100)) + 1
+#     else:
+#         return (Decimal(100) / Decimal(abs(american_odds))) + 1
+
+# def decimal_to_american(decimal_odds):
+#     if decimal_odds == 1.0:
+#         return 0
+#     if decimal_odds >= 2.0:
+#         return int((decimal_odds - 1) * 100)
+#     else:
+#         return int(-100 / (decimal_odds - 1))
 
 def generate_uuid():
     return str(uuid.uuid4())
 
 def calculate_vig(*args):
-    getcontext().prec = 4
     commission = float(Decimal(1) - (Decimal(1) / Decimal(sum(args))))
     return commission if commission > 0 else 0.
 
@@ -86,7 +129,7 @@ def read_config(file_path: str):
 
 def update_config(obj: dict, file_path: str):
     with open(file_path, 'w') as f:
-        json.dump(obj, f)
+        json.dump(obj, f, indent=4)
 
 def create_dir(path: str):
     if not os.path.exists(path):
@@ -95,17 +138,14 @@ def create_dir(path: str):
     else:
         print(f"Directory '{path}' already exists.")
 
-def get_files_list(path):
-    if not os.path.exists(path):
-        return None
-    
-    files = []
+def get_files_list(path):    
+    files_ = []
     for root, dirs, files in os.walk(path, topdown=False):
         # Iterate over the files in current root
         for file_entry in files:
             # create the relative path to the file
-            files.append(os.path.join(root, file_entry))
-    return files
+            files_.append(os.path.join(root, file_entry))
+    return files_
 
 def record_bankroll(starting_bk: float, bk: float, file_path: str, date: datetime):
     file_exists = os.path.isfile(file_path)
@@ -145,6 +185,19 @@ def generate_chart(csv_file, output_file, **kwargs):
 
     # Close the plot to prevent it from displaying
     plt.close()
+
+def extract_time(time_string):
+    # Extract the time from the string and convert to datetime object in UTC
+    dt_utc = datetime.strptime(time_string, '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    # Convert the time to EST (US/Eastern)
+    est = timezone('US/Eastern')
+    dt_est = dt_utc.astimezone(est)
+
+    # Format the result to 'HH:MM'
+    time_est = dt_est.strftime('%H:%M')
+
+    return time_est
 
 def fetch_upcoming_games(league: str, league_code: str, date: datetime, season: str, logger: Logger):
     try:
@@ -216,6 +269,9 @@ def fetch_upcoming_games(league: str, league_code: str, date: datetime, season: 
         logger.error(f'fetch_upcoming_games(): {err}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
         return True
+
+def fetch_odds():
+    pass
         
 def map_from_rapidapi_to_bookmaker(home, away, league, bookmaker):
     config_ = read_config(MAPPINGS_FILE)

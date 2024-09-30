@@ -32,7 +32,11 @@ def send_email(messages, subject, logger: Logger, attachments=None):
                 email_msg = MIMEMultipart()
                 email_msg['Subject'] = subject
                 email_msg['From'] = EMAIL_ADDRESS
-                recipients = [PERSONAL_EMAIL]
+
+                if attachments:
+                    recipients = [PERSONAL_EMAIL, EMAIL_SMS]
+                else:
+                    recipients = [PERSONAL_EMAIL]
                 email_msg['To'] = ', '.join(recipients)
 
                 # Add the message body to the email
@@ -55,5 +59,8 @@ def send_email(messages, subject, logger: Logger, attachments=None):
                 logger.info(f'Sent email notification')
             except Exception as e:
                 e_type, e_object, e_traceback = sys.exc_info()
+                e_filename = os.path.split(
+                    e_traceback.tb_frame.f_code.co_filename
+                )[1]
                 e_line_number = e_traceback.tb_lineno
-                logger.error(f'{e}, line: {e_line_number}')
+                logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')

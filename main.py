@@ -103,9 +103,9 @@ def main(args):
                 
                 games = load_many(select_upcoming_games_query, today, league)
 
-                bets_ids = execute(check_match_ratings_query, (league, today))
-
-                bets_ids = {bet[0]: bet[1] for bet in bets_ids} if bets_ids else {}
+                ids = execute(check_match_ratings_query, (league, today))
+                bets_ids = {bet[0]: bet[1] for bet in ids} if ids else {}
+                logger.info(f'IDs and statuses of bets already placed: {bets_ids}')
 
                 starting_bk = curr_bal = round(strat_config[league]['bankroll'], 2)
                 consolidated_starting += starting_bk
@@ -147,7 +147,15 @@ def main(args):
                             continue
                     
                     home_, away_ = map_from_rapidapi_to_bookmaker(game[3], game[4], league, bookmaker)
-                    game_url = list(filter(lambda game_: game_['home']==home_ and game_['away']==away_, games_url))[0]
+
+                    urls = list(filter(lambda game_: game_['home']==home_ and game_['away']==away_, games_url))
+
+                    if len(urls) == 0:
+                        logger.info(f"No url for {game[3]} - {game[4]}, skipping")
+                        messages.append(f"No url for {game[3]} - {game[4]}, skipping")
+                        continue
+
+                    game_url = urls[0]
                     home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url['url'], logger, game_id=game[0])
                     logger.info(f"{bookmaker} odds for {game[3]} - {game[4]}: H: {home_odds:.2f} | D: {draw_odds:.2f} | A: {away_odds:.2f}")
 
@@ -212,20 +220,23 @@ def main(args):
                             final_values = tuple(final_values)
                         case _:
                             final_values = ()
+                    
+                    strat_config[league]['bankroll'] = curr_bal
 
                     bets.append(final_values)
 
                     logger.info(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}")
                     messages.append(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}\n")
 
-                strat_config[league]['bankroll'] -= consolidated
-                update_config(strat_config, config_path)
+                # strat_config[league]['bankroll'] -= consolidated
 
                 messages.append(f"Amount wagered for {league_name}: ${consolidated:.2f}")
                 logger.info(f"Amount wagered for {league_name}: ${consolidated:.2f}")
                 messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']:.2f}\n")
                 logger.info(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']:.2f}")
             
+            update_config(strat_config, config_path)
+
             if len(bets) > 0:
                 final_bk = consolidated_starting-total_staked
 

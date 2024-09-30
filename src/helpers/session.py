@@ -29,3 +29,6 @@ class SessionManager:
 
     def get_session(self):
         return self.session
+    
+    # def __del__(self):
+    #     self.save_session()

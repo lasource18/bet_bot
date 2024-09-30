@@ -35,6 +35,10 @@ class BettingBot:
     @abstractmethod
     def place_bet(self, odds, stake, outcome, game_info, logger: Logger, **kwargs):
         raise NotImplementedError('Method is required!')
+    
+    @abstractmethod
+    def logout(self, logger: Logger, **kwargs):
+        raise NotImplementedError('Method is required!')
 
     def simulate_human_behavior(self):
         time.sleep(random.uniform(1, 3))

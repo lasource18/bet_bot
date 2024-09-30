@@ -81,9 +81,9 @@ class MatchRatingsStrategy(Strategy):
                 {away} rating: {self.away_rating}
                 Match rating: {self.match_rating}
 
-                True Home Win Proba: {self.hwtp}
-                True Draw Proba: {self.dtp}
-                True Away Proba: {self.awtp}
+                True Home Win Proba: {self.hwtp*100:.2f}%
+                True Draw Proba: {self.dtp*100:.2f}%
+                True Away Proba: {self.awtp*100:.2f}%
 
                 True Home Win Odds: {self.hwto}
                 True Draw Win Odds: {self.tdo}
@@ -96,6 +96,8 @@ class MatchRatingsStrategy(Strategy):
                 Home Win Stake: {self.h}
                 Draw Stake: {self.d}
                 Away Win Stake: {self.a}
+
+                Pre-bet BK: ${self.strat_config[self.league]['bankroll']:.2f}
                 
                 Bet: {self.bet}""")
 
