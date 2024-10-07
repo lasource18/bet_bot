@@ -33,7 +33,7 @@ def send_email(messages, subject, logger: Logger, attachments=None):
                 email_msg['Subject'] = subject
                 email_msg['From'] = EMAIL_ADDRESS
 
-                if attachments:
+                if not attachments:
                     recipients = [PERSONAL_EMAIL, EMAIL_SMS]
                 else:
                     recipients = [PERSONAL_EMAIL]

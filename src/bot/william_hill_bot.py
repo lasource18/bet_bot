@@ -75,15 +75,12 @@ class WilliamHillBot(BettingBot):
             self.headers['Content-Type'] = 'application/json'
             res1 = self.session.get(login_url, headers=self.headers, cookies=self.cookies)
 
-            print('Hello')
             res1.raise_for_status()
 
             res_headers = res1.headers
             req_headers = res1.request.headers
             req_cookies = res1.cookies
             print('Response headers:', res_headers, 'Request headers:', req_headers, 'Response cookies:', req_cookies)
-
-            req_id = res1.headers['RequestId']
 
             # data = res1.json()
 
@@ -170,7 +167,7 @@ class WilliamHillBot(BettingBot):
             games: dict = {game['name']: game for game_id, game in selections.items() if selections[game_id]['name'] in teams} 
             games_urls = [{'id': game['id'], 'startTime': extract_time(game['startDateTime']), 'url': game['eventUrl'], 'home': game['name'].split('v')[0].trim(), 'away': game['name'].split('v')[1].trim()} for game in events.values()]
             
-            id_mapping = {list(item.keys())[0]: list(item.values())[0]['id'] for item in games}
+            # id_mapping = {list(item.keys())[0]: list(item.values())[0]['id'] for item in games}
 
             # Now update each dictionary in list2 with the corresponding 'id' from list1
 
@@ -217,6 +214,7 @@ class WilliamHillBot(BettingBot):
 
     def place_bet(self, odds, stake, outcome, game_info, logger: Logger, **kwargs):
         # {"channel": "I", "selectionIds": [["24244114"]], "byoSelections": []}
+        
         pass
 
     def logout(self, logger, **kwargs):

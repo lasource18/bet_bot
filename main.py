@@ -116,9 +116,10 @@ def main(args):
                 if len(games) > 0:
                     games_headlines = '\n'.join([f"{game[3]} - {game[4]}" for game in games])
                     logger.info(f'Games for {league_name}: \n{games_headlines}')
+                    teams = [team for game in games for team in game[3:5]]
 
                     betting_bot.simulate_human_behavior()
-                    games_url = betting_bot.get_game_urls(bookmaker_ids[league], logger, today=today)
+                    games_url = betting_bot.get_game_urls(bookmaker_ids[league], logger, today=today, teams=teams)
 
                     messages.append(f"{league_name} games")
                     messages.append(f"{'-' * (len(league_name)+6)}\n")
@@ -244,7 +245,7 @@ def main(args):
                 messages.append(f"Consolidated starting bankroll: ${consolidated_starting:.2f}")
                 messages.append(f"Consolidated ending bankroll: ${final_bk:.2f}\n")
 
-                logger.info(f"Total amount wagered: ${consolidated:.2f}")
+                logger.info(f"Total amount wagered: ${total_staked:.2f}")
                 logger.info(f"Consolidated starting bankroll: ${consolidated_starting:.2f}")
                 logger.info(f"Consolidated ending bankroll: ${final_bk:.2f}")
 
@@ -252,6 +253,8 @@ def main(args):
             
             messages.append(f'Total: {placed} bet(s) placed\n')
             logger.info(f'Total: {placed} bet(s) placed')
+
+            # betting_bot.logout()
             
             send_email(messages, subject, logger)
         else:

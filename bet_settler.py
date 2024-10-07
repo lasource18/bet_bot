@@ -31,6 +31,8 @@ configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
     configs.load(config_file)
 
+getcontext().prec = 2
+
 def main(args):
     try:
         betting_strategy = args.betting_strategy.lower()

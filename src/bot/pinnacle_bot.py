@@ -33,7 +33,7 @@ class PinnacleBettingBot(BettingBot):
             'x-device-uuid': DEVICE_UUID
         }
         self.name = name
-        self.responses_directory_path = f'{RESPONSES_DIR}/{today}'
+        self.responses_directory_path = f'{RESPONSES_DIR}/{self.name}/{today}'
         create_dir(self.responses_directory_path)
     
     def login(self, credentials, logger: Logger, **kwargs):
@@ -50,7 +50,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.post(login_url, data=payload, headers=self.headers)
             data = response.json()
 
-            with open(f'{self.responses_directory_path}/{self.name}/login.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/login.json', 'w') as f:
                 json.dump(data, f, indent=4)
 
             response.raise_for_status()
@@ -73,7 +73,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.get(balance_url, headers=self.headers)
             data = response.json()
 
-            with open(f'{self.responses_directory_path}/{self.name}/check_balance.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/check_balance.json', 'w') as f:
                 json.dump(data, f, indent=4)
 
             response.raise_for_status()
@@ -98,7 +98,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.get(f'{self.base_url}/leagues/{league}/matchups', headers=self.headers, params=params)
             data = response.json()
 
-            with open(f'{self.responses_directory_path}/{self.name}/get_game_urls_{league}.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/get_game_urls_{league}.json', 'w') as f:
                 json.dump({'data': data}, f, indent=4)
 
             response.raise_for_status()
@@ -112,7 +112,7 @@ class PinnacleBettingBot(BettingBot):
             today_games = [game for game in games if datetime.fromisoformat(game['startTime']).astimezone(ZoneInfo("America/New_York")).strftime('%Y-%m-%d') == today_]
             unique_games = {game['id']: game for game in today_games}
             games_filtered = list(unique_games.values())
-            games_urls = [{'id': game['id'], 'startTime': extract_time(game['startTime']), 'url': f"{self.base_url}/matchups/{game['id']}/markets/related/straight", 'home': game['participants'][0]['name'], 'away': game['participants'][1]['name']} for game in games_filtered]
+            games_urls = [{'id': game['id'], 'startTime': game['startTime'], 'url': f"{self.base_url}/matchups/{game['id']}/markets/related/straight", 'home': game['participants'][0]['name'], 'away': game['participants'][1]['name']} for game in games_filtered]
         except requests.HTTPError as http_err:
             logger.error(f"Failed to retrieve games for date {today} | HTTP error occurred: {http_err} ")
         except RetryError as retry_err:
@@ -131,7 +131,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.get(url, headers=self.headers)
             data = response.json()
 
-            with open(f'{self.responses_directory_path}/{self.name}/check_odds_{game_id}.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/check_odds_{game_id}.json', 'w') as f:
                 json.dump({'data': data}, f, indent=4)
             
             response.raise_for_status()
@@ -169,7 +169,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.post(url, data=payload, headers=self.headers)
             data = response.json()
             
-            with open(f'{self.responses_directory_path}/{self.name}/get_min_max_stake_{game_id}.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/get_min_max_stake_{game_id}.json', 'w') as f:
                 json.dump(data, f, indent=4)
             
             response.raise_for_status()
@@ -227,7 +227,7 @@ class PinnacleBettingBot(BettingBot):
             payload = json.dumps(payload)
             response = self.session.post(bet_url, data=payload, headers=self.headers)
             data = response.json()
-            with open(f"{self.responses_directory_path}/{self.name}/place_bet_{game_id}.json", 'w') as f:
+            with open(f"{self.responses_directory_path}/place_bet_{game_id}.json", 'w') as f:
                 json.dump(data, f, indent=4)
             
             response.raise_for_status()
@@ -251,7 +251,7 @@ class PinnacleBettingBot(BettingBot):
             response = self.session.delete(logout_url, headers=self.headers)
             data = response.json()
 
-            with open(f'{self.responses_directory_path}/{self.name}/logout.json', 'w') as f:
+            with open(f'{self.responses_directory_path}/logout.json', 'w') as f:
                 json.dump(data, f, indent=4)
 
             response.raise_for_status()

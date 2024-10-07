@@ -167,6 +167,7 @@ def generate_reports(df: pd.DataFrame, report_path, logger: Logger):
     # Add the value of each bar on the chart
     for index, value in enumerate(avg_vig):
         ax.text(value, index, f'{value:.2f}%', va='center')  # Annotate each bar with itVig by Bookmaker')
+    plt.title(f'Average vig by Bookmaker')
     plt.tight_layout()
     plt.savefig(f"{report_path}/charts/avg_vig_by_bookmaker.png")
     plt.close()

@@ -187,17 +187,31 @@ def generate_chart(csv_file, output_file, **kwargs):
     plt.close()
 
 def extract_time(time_string):
-    # Extract the time from the string and convert to datetime object in UTC
-    dt_utc = datetime.strptime(time_string, '%Y-%m-%dT%H:%M:%S.%f%z')
-
-    # Convert the time to EST (US/Eastern)
+    # List of possible datetime formats
+    formats = [
+        '%Y-%m-%dT%H:%M:%S.%f%z',  # Format with milliseconds
+        '%Y-%m-%dT%H:%M:%S%z'      # Format without milliseconds
+    ]
+    
+    dt_utc = None
+    
+    # Try to parse the datetime string with available formats
+    for fmt in formats:
+        try:
+            dt_utc = datetime.strptime(time_string, fmt)
+            break  # Exit loop if parsing is successful
+        except ValueError:
+            continue
+    
+    if dt_utc is None:
+        raise ValueError("Time string does not match expected formats.")
+    
+    # Convert UTC time to EST
     est = timezone('US/Eastern')
     dt_est = dt_utc.astimezone(est)
-
+    
     # Format the result to 'HH:MM'
-    time_est = dt_est.strftime('%H:%M')
-
-    return time_est
+    return dt_est.strftime('%H:%M')
 
 def fetch_upcoming_games(league: str, league_code: str, date: datetime, season: str, logger: Logger):
     try:
