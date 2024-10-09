@@ -275,7 +275,7 @@ def main(args):
             messages = [f'Current win rate: {wr}%\n\n', 'Reports attached herein:\n']
             files = get_files_list(report_path)
 
-            logger.info('Files list: ', files)
+            logger.info(f'Files list: {files}')
 
             send_email(messages, subject, logger, files)
         else:

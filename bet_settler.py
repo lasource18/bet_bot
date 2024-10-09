@@ -45,7 +45,7 @@ def main(args):
         if betting_strategy in strategies_list:
             getcontext().prec = 3
 
-            today_dt = datetime.now()
+            today_dt = datetime.now()-timedelta(1)
             today = today_dt.strftime('%Y-%m-%d')
 
             log_path = f"{LOGS}/{betting_strategy}/bet_settler/{season}"
@@ -108,10 +108,10 @@ def main(args):
                 logger.info(f"Bets for {league_name} on {today}: \n{bets_headlines}")
                 results = fetch_today_games_results(session, league_id, today, season, bets.keys(), logger)
 
-                if len(bets) != len(results):
-                    messages.append(f'Results length does not match bets length for {league}\n')
-                    logger.warning(f'Results length does not match bets length for {league}')
-                    continue
+                # if len(bets) != len(results):
+                #     messages.append(f'Results length does not match bets length for {league}\n')
+                #     logger.warning(f'Results length does not match bets length for {league}')
+                #     continue
 
                 wagered = 0
                 earnings = 0

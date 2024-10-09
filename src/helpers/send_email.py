@@ -4,7 +4,6 @@ import sys
 from logging import Logger
 from dotenv import load_dotenv
 
-from datetime import datetime
 import smtplib, ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart

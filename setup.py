@@ -73,6 +73,9 @@ setup(
             'staking_factory = staking.staking_factory:get_stake',
             'betting_bot_factory = bot.betting_bot_factory:select_betting_bot',
             'strategy_factory = strategies.strategy_factory:select_strategy',
+            'main_args_parser = helpers.main_args_parser:args_parser',
+            'bet_settler_args_parser = helpers.bet_settler_args_parser:args_parser',
+            'reports_generator_args_parser = helpers.reports_generator_args_parser:args_parser',
         ]
     },
 )

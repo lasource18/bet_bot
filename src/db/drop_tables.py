@@ -1,5 +1,8 @@
 import sqlite3
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 DB_FILE = os.environ['DB_FILE']
 

@@ -5,7 +5,7 @@ from decimal import getcontext, Decimal
 getcontext().prec = 3
 
 class KellyStaking(Staking):
-    FRAC_KELLY = 0.1
+    FRAC_KELLY = 0.5
 
     def __init__(self, bk, **kwargs) -> None:
         super().__init__(bk)
