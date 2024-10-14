@@ -45,14 +45,14 @@ def main(args):
         if betting_strategy in strategies_list:
             getcontext().prec = 3
 
-            today_dt = datetime.now()-timedelta(1)
+            today_dt = datetime.now()
             today = today_dt.strftime('%Y-%m-%d')
 
             log_path = f"{LOGS}/{betting_strategy}/bet_settler/{season}"
             create_dir(log_path)
             logger = setup_logger('bet_settler', f'{log_path}/{today}_bet_settler.log')
 
-            logger.info(f'Starting bet_bot:bet_settler {betting_strategy}')
+            logger.info(f'Starting bet_bot: bet_settler {betting_strategy}')
 
             select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data.replace('\"', '')
             update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data.replace('\"', '')
@@ -216,6 +216,7 @@ def main(args):
 
 def fetch_today_games_results(session: requests.Session, league, date, season, game_ids, logger: Logger):
     try:
+        fixtures = []
         params = {"league":league,"season":season.split('-')[0],"date": date,"timezone":"America/New_York"}
 
         response = session.get(url, headers=headers, params=params)
@@ -235,15 +236,13 @@ def fetch_today_games_results(session: requests.Session, league, date, season, g
         ]
     except requests.HTTPError as http_err:
         logger.error(f"Login failed | HTTP error occurred: {http_err}")
-        return []
     except RetryError as err:
         logger.error(f"Login failed | Retry Error: {err}")
-        return []
     except Exception as err:
         logger.error(f"fetch_today_games_results(): Other error occurred: {err}")
-        return []
     else:
         logger.info(f"Games to settle: {fixtures}")
+    finally:
         return fixtures
 
 if __name__ == '__main__':

@@ -39,6 +39,8 @@ def main(args):
         leagues = config.get('leagues', {})
         season = config.get('season', '2024-2025')
         strategies_list = config.get('strategies', [])
+        logged_in = False
+        betting_bot = None
 
         if betting_strategy in strategies_list:
             log_path = f'{LOGS}/{betting_strategy}/main/{season}'
@@ -253,8 +255,6 @@ def main(args):
             
             messages.append(f'Total: {placed} bet(s) placed\n')
             logger.info(f'Total: {placed} bet(s) placed')
-
-            # betting_bot.logout()
             
             send_email(messages, subject, logger)
         else:
@@ -269,6 +269,10 @@ def main(args):
         logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
     else:
         logger.info('Mission accomplished.')
+    finally:
+        if logged_in and betting_bot:
+            logger.info('Logging out.')
+            betting_bot.logout(logger)
 
 def get_status(betting_bot: BettingBot, bookmaker, values, game_url, logger):
     min_stake, max_stake = betting_bot.get_max_min_stake(game_url, values['bet'], values['bet_odds'], logger, today=today)
