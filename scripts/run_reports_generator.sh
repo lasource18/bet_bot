@@ -23,7 +23,15 @@ fi
 
 LOG_FILE="${DIR}/$(date '+%Y-%m-%d')_reports_generator_errors.log" 
 
-# Run the script with the provided period argument
-$PYTHON $REPORTS_GENERATOR_PYTHON_SCRIPT -B "$BETTING_STRATEGY" &> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting script: run_reports_generator.sh" >> "$LOG_FILE"
 
-echo "Reports generator has finished. Logs are saved to $LOG_FILE."
+# Run the script with the provided period argument
+$PYTHON $REPORTS_GENERATOR_PYTHON_SCRIPT -B "$BETTING_STRATEGY" >> "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Script executed successfully" >> "$LOG_FILE"
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Script failed to execute" >> "$LOG_FILE"
+fi
+
+# echo "Reports generator has finished. Logs are saved to $LOG_FILE."

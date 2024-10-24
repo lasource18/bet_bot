@@ -1,4 +1,6 @@
 from fractions import Fraction
+import hashlib
+import hmac
 import json
 from logging import Logger
 import os
@@ -117,6 +119,25 @@ def convert_odds(odds, from_type, to_type):
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+def gen_sha512_hash(msg):
+    msg = msg.encode() if isinstance(msg, str) else msg
+    sha512_hash = hashlib.sha512(msg)
+    return sha512_hash.hexdigest()
+
+def gen_hmac_sha512_hash(key, msg):
+    key = key.encode() if isinstance(key, str) else key
+    msg = msg.encode() if isinstance(msg, str) else msg
+
+    hmac_obj = hmac.new(key, msg, hashlib.sha512)
+
+    return hmac_obj.hexdigest()
+
+def gen_pbkdf2_sha512_hash(pwd, salt, iterations=10000, dklen=64):
+    pwd = pwd.encode() if isinstance(pwd, str) else pwd
+    salt = salt.encode() if isinstance(salt, str) else salt
+    derived_key = hashlib.pbkdf2_hmac('sha512', pwd, salt, iterations, dklen)
+    return derived_key.hex()
 
 def calculate_vig(*args):
     commission = float(Decimal(1) - (Decimal(1) / Decimal(sum(args))))

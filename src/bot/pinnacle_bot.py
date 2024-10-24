@@ -187,7 +187,7 @@ class PinnacleBettingBot(BettingBot):
         except Exception as err:
             logger.error(f"get_min_stake(): Other error occurred: {err}")
         else:
-            logger.info(f"Minimum stake for game {game_info['home']} - {game_info['away']}: {min_stake}")
+            logger.info(f"Minimum stake for game {game_info['home']} - {game_info['away']}: ${min_stake}")
         finally:
             return min_stake, max_stake
         

@@ -23,7 +23,15 @@ fi
 
 LOG_FILE="${DIR}/$(date '+%Y-%m-%d')_bet_settler_errors.log" 
 
-# Run the script with the provided period argument
-$PYTHON $BET_SETTLER_PYTHON_SCRIPT -B "$BETTING_STRATEGY" &> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting script: run_bet_settler.sh" >> "$LOG_FILE"
 
-echo "Bet settler has finished. Logs are saved to $LOG_FILE."
+# Run the script with the provided period argument
+$PYTHON $BET_SETTLER_PYTHON_SCRIPT -B "$BETTING_STRATEGY" >> "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Script executed successfully" >> "$LOG_FILE"
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Script failed to execute" >> "$LOG_FILE"
+fi
+
+# echo "Bet settler has finished. Logs are saved to $LOG_FILE."

@@ -78,7 +78,7 @@ def main(args):
             bk_chart_dir = f'{BANKROLL_DIR}/{season}/charts'
             create_dir(bk_chart_dir)
 
-            bets = []
+            total_bets = []
 
             consolidated_starting = 0
 
@@ -93,6 +93,7 @@ def main(args):
                 consolidated_starting += starting_bk
 
                 bets = load_many(select_from_match_ratings_query, league, today)
+                total_bets.append(bets)
 
                 if len(bets) == 0:
                     messages.append(f"No bets to settle for {league_name}\n")
@@ -143,7 +144,7 @@ def main(args):
                     else:
                         res = 'NB'
                     
-                    yield_ = float(Decimal(profit) / Decimal(bet[4]) * 100)
+                    yield_ = float(Decimal(profit) / Decimal(bet[4]) * 100) if Decimal(bet[4]) > 0 else 0
 
                     updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%f')
 
@@ -180,7 +181,7 @@ def main(args):
             
             update_config(strat_config, config_path)
 
-            if len(bets) > 0:
+            if len(total_bets) > 0:
                 file_path = f'{BANKROLL_DIR}/{season}/data/Consolidated_bankroll.csv'
                 output_path = f'{BANKROLL_DIR}/{season}/charts/Consolidated_bankroll.png'
                 final_bk = round(consolidated_starting+total_earnings, 2)

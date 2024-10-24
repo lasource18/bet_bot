@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 
 from typing import Dict, List
+
+from filelock import FileLock
 from staking.staking_factory import StakingFactory
 from strategies.strategy import Strategy
 
@@ -121,7 +123,7 @@ class MatchRatingsStrategy(Strategy):
                 'bet_odds': self.bet_odds,
                 'value': self.value,
                 'stake': round(self.stake, 1),
-                'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 0) else False
+                'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 1) else False
             }
         except Exception as e:
             e_type, e_object, e_traceback = sys.exc_info()
@@ -157,10 +159,15 @@ def group_data_by_teams(df: DataFrame, lst: List[str], league: str, curr_season:
         teams[el]['Rolling Average'] = teams[el]['Rating'].shift().rolling(6).sum()
 
         transformed_hist_data = f'{path}/transformed_hist_data/{curr_season}/{league}'
-        if not os.path.exists(transformed_hist_data):
-            os.makedirs(transformed_hist_data)
+        # if not os.path.exists(transformed_hist_data):
+        os.makedirs(transformed_hist_data, exist_ok=True)
 
-        teams[el].to_csv(f'{transformed_hist_data}/{el}.csv')
+        file_path = f'{transformed_hist_data}/{el}.csv'
+        lock_path = f'{MISC_PATH}/locks/{file_path}.lock'  # Create a lock file path
+
+        # Use a lock to ensure only one instance writes to the file at a time
+        with FileLock(lock_path):
+            teams[el].to_csv(file_path)
     return teams
     
 def compute_ratings(teams: Dict[str, DataFrame], home, away):

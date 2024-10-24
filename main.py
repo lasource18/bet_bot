@@ -162,7 +162,7 @@ def main(args):
                     home_odds, draw_odds, away_odds = betting_bot.check_odds(game_url['url'], logger, game_id=game[0])
                     logger.info(f"{bookmaker} odds for {game[3]} - {game[4]}: H: {home_odds:.2f} | D: {draw_odds:.2f} | A: {away_odds:.2f}")
 
-                    home_proba, draw_proba, away_proba = round(float(Decimal(1./home_odds)), 2), round(float(Decimal(1./draw_odds)), 2), round(float(Decimal(1./away_odds)), 2)
+                    home_proba, draw_proba, away_proba = round(float(Decimal(1./home_odds)), 4), round(float(Decimal(1./draw_odds)), 4), round(float(Decimal(1./away_odds)), 4)
                     logger.info(f"{bookmaker} implied proba for {game[3]} - {game[4]}: H: {home_proba*100:.2f}% | D: {draw_proba*100:.2f}% | A: {away_proba*100:.2f}%")
 
                     vig = calculate_vig(home_proba, draw_proba, away_proba)*100
