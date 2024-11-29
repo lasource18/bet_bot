@@ -240,7 +240,7 @@ def main(args):
     try:
         betting_strategy = args.betting_strategy.lower()
 
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = (datetime.now()).strftime('%Y-%m-%d')
 
         config = read_config(CONFIG_FILE)
         season = config.get('season', '2024-2025')

@@ -122,6 +122,7 @@ def main(args):
 
                     betting_bot.simulate_human_behavior()
                     games_url = betting_bot.get_game_urls(bookmaker_ids[league], logger, today=today, teams=teams)
+                    logger.info(f'Games urls: {games_url}')
 
                     messages.append(f"{league_name} games")
                     messages.append(f"{'-' * (len(league_name)+6)}\n")

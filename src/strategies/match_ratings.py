@@ -35,9 +35,9 @@ class MatchRatingsStrategy(Strategy):
 
             r = {}
 
-            df = self.data.copy()
-            df.reset_index()
-            df = df[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG']]
+            df: DataFrame = self.data.copy()
+            df = df[['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG']]
+            df.set_index('Date', inplace=True)
             lst = get_teams_list(df)
             teams = group_data_by_teams(df, lst, self.league, self.season, f'{MISC_PATH}/{betting_strategy}')
             self.home_rating, self.away_rating, self.match_rating = compute_ratings(teams, home, away)
@@ -163,7 +163,7 @@ def group_data_by_teams(df: DataFrame, lst: List[str], league: str, curr_season:
         os.makedirs(transformed_hist_data, exist_ok=True)
 
         file_path = f'{transformed_hist_data}/{el}.csv'
-        lock_path = f'{MISC_PATH}/locks/{file_path}.lock'  # Create a lock file path
+        lock_path = f'{path}/locks/{league}/{el}.csv.lock'  # Create a lock file path
 
         # Use a lock to ensure only one instance writes to the file at a time
         with FileLock(lock_path):

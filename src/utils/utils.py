@@ -101,22 +101,6 @@ def convert_odds(odds, from_type, to_type):
     else:
         raise ValueError("Invalid conversion type. Use 'american', 'fraction', or 'decimal'.")
 
-# def american_to_decimal(american_odds):
-#     if american_odds == 0:
-#         return 1.0
-#     if american_odds > 0:
-#         return (Decimal(american_odds) / Decimal(100)) + 1
-#     else:
-#         return (Decimal(100) / Decimal(abs(american_odds))) + 1
-
-# def decimal_to_american(decimal_odds):
-#     if decimal_odds == 1.0:
-#         return 0
-#     if decimal_odds >= 2.0:
-#         return int((decimal_odds - 1) * 100)
-#     else:
-#         return int(-100 / (decimal_odds - 1))
-
 def generate_uuid():
     return str(uuid.uuid4())
 
@@ -332,7 +316,7 @@ def load_one(q, *args):
 def load_many(q, *args):
     return db.load_many(q, *args)
 
-def execute(q, data):
+def execute(q, data=None):
     db.execute(q, data)
 
 def execute_many(q, data):

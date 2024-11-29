@@ -22,9 +22,9 @@ PERSONAL_EMAIL = os.environ['PERSONAL_EMAIL']
 EMAIL_SMS = os.environ['EMAIL_SMS']
 
 def send_email(messages, subject, logger: Logger, attachments=None):
-    with smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT, context=context) as server:
-        if len(messages) > 0:
-            try:
+    try:
+        with smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT, context=context) as server:
+            if len(messages) > 0:
                 server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
 
                 # Create a multipart message
@@ -57,10 +57,10 @@ def send_email(messages, subject, logger: Logger, attachments=None):
                 server.sendmail(EMAIL_ADDRESS, recipients, email_msg.as_string())
 
                 logger.info(f'Sent email notification')
-            except Exception as e:
-                e_type, e_object, e_traceback = sys.exc_info()
-                e_filename = os.path.split(
-                    e_traceback.tb_frame.f_code.co_filename
-                )[1]
-                e_line_number = e_traceback.tb_lineno
-                logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')
+    except Exception as e:
+        e_type, e_object, e_traceback = sys.exc_info()
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+        e_line_number = e_traceback.tb_lineno
+        logger.error(f'{e}, type: {e_type}, filename: {e_filename}, line: {e_line_number}')

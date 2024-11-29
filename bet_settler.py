@@ -8,6 +8,7 @@ from datetime import datetime
 from decimal import Decimal, getcontext
 import time
 
+from filelock import FileLock
 import requests
 from requests.exceptions import RetryError
 
@@ -41,6 +42,7 @@ def main(args):
         strategies_list = config.get('strategies', [])
         leagues = config.get('leagues', {})
         season = config.get('season', '2024-2025')
+        base_dir = f'{BANKROLL_DIR}/{season}'
 
         if betting_strategy in strategies_list:
             getcontext().prec = 3
@@ -165,10 +167,16 @@ def main(args):
                 messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}\n")
                 logger.info(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']}")
 
-                file_path = f'{BANKROLL_DIR}/{season}/data/{league}_bankroll.csv'
-                output_path = f'{BANKROLL_DIR}/{season}/charts/{league}_bankroll.png'
-                record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today_dt)
-                generate_chart(file_path, output_path, league=league_name, season=season)
+                file_path = f'{base_dir}/data/{league}_bankroll.csv'
+                output_path = f'{base_dir}/charts/{league}_bankroll.png'
+
+                file_lock_path = f'{base_dir}/locks/{league}_bankroll.csv.lock'  # Create a lock file path
+                output_lock_path = f'{base_dir}/locks/{league}_bankroll.png.lock'  # Create a lock file path
+                
+                with FileLock(file_lock_path):
+                    record_bankroll(starting_bk, strat_config[league]['bankroll'], file_path, today_dt)
+                with FileLock(output_lock_path):
+                    generate_chart(file_path, output_path, league=league_name, season=season)
 
                 total_wagered += wagered
                 total_earnings += earnings
@@ -182,11 +190,18 @@ def main(args):
             update_config(strat_config, config_path)
 
             if len(total_bets) > 0:
-                file_path = f'{BANKROLL_DIR}/{season}/data/Consolidated_bankroll.csv'
-                output_path = f'{BANKROLL_DIR}/{season}/charts/Consolidated_bankroll.png'
+                file_path = f'{base_dir}/data/Consolidated_bankroll.csv'
+                output_path = f'{base_dir}/charts/Consolidated_bankroll.png'
+
+                file_lock_path = f'{base_dir}/locks/Consolidated_bankroll.csv.lock'  # Create a lock file path
+                output_lock_path = f'{base_dir}/locks/Consolidated_bankroll.png.lock'  # Create a lock file path
+                
                 final_bk = round(consolidated_starting+total_earnings, 2)
-                record_bankroll(consolidated_starting, final_bk, file_path, today_dt)
-                generate_chart(file_path, output_path, league='Consolidated', season=season)
+
+                with FileLock(file_lock_path):
+                    record_bankroll(consolidated_starting, final_bk, file_path, today_dt)
+                with FileLock(output_lock_path):
+                    generate_chart(file_path, output_path, league='Consolidated', season=season)
 
                 messages.append(f'Total amount wagered: ${total_wagered:.2f}')
                 logger.info(f'Total amount wagered: ${total_wagered:.2f}')
