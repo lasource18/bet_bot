@@ -232,8 +232,9 @@ def generate_reports(df: pd.DataFrame, report_path, logger: Logger):
     match_rating_stats.T.to_csv(f'{report_path}/reports/match_rating_stats.csv')
 
     wr = round(success_bets['result'].count() / df.shape[0] * 100, 2)
+    profit = df['profit'].sum().round(2)
 
-    return wr
+    return wr, profit
 
 # Main function to run all reports
 def main(args):
@@ -269,10 +270,10 @@ def main(args):
             report_path = f"{REPORTS_DIR}/{betting_strategy}/{season}"
             create_dir(report_path)
 
-            wr = generate_reports(df, report_path, logger)
+            wr, profit = generate_reports(df, report_path, logger)
 
             subject = f'Reports generated for {betting_strategy} on {today}'
-            messages = [f'Current win rate: {wr}%\n\n', 'Reports attached herein:\n']
+            messages = [f'Current win rate: {wr}%\n\n', f'Current profit: ${profit}', 'Reports attached herein:\n']
             files = get_files_list(report_path)
 
             logger.info(f'Files list: {files}')
