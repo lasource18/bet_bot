@@ -273,7 +273,7 @@ def main(args):
             wr, profit = generate_reports(df, report_path, logger)
 
             subject = f'Reports generated for {betting_strategy} on {today}'
-            messages = [f'Current win rate: {wr}%\n\n', f'Current profit: ${profit}', 'Reports attached herein:\n']
+            messages = [f'Current win rate: {wr}%', f'Current profit: ${profit}\n\n', 'Reports attached herein:\n']
             files = get_files_list(report_path)
 
             logger.info(f'Files list: {files}')

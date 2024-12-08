@@ -248,7 +248,7 @@ def fetch_today_games_results(session: requests.Session, league, date, season, g
                 'home' if int(fixture['goals']['home']) > int(fixture['goals']['away']) 
                 else ('away' if int(fixture['goals']['home']) < int(fixture['goals']['away']) else 'draw'),
                 int(fixture['fixture']['id']),
-            ) for fixture in data['response'] if int(fixture['fixture']['id']) in game_ids
+            ) for fixture in data['response'] if int(fixture['fixture']['id']) in game_ids and fixture['fixture']['status']['long'] != 'Match Postponed'
         ]
     except requests.HTTPError as http_err:
         logger.error(f"Login failed | HTTP error occurred: {http_err}")
@@ -256,6 +256,7 @@ def fetch_today_games_results(session: requests.Session, league, date, season, g
         logger.error(f"Login failed | Retry Error: {err}")
     except Exception as err:
         logger.error(f"fetch_today_games_results(): Other error occurred: {err}")
+        logger.error(data)
     else:
         logger.info(f"Games to settle: {fixtures}")
     finally:
