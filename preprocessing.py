@@ -9,7 +9,6 @@ from decimal import getcontext, Decimal
 
 from jproperties import Properties
 
-from bot.betting_bot import BettingBot
 from helpers.main_args_parser import args_parser
 from helpers.send_email import send_email
 from helpers.logger import setup_logger
@@ -22,7 +21,6 @@ configs = Properties()
 with open(SQL_PROPERTIES, 'rb') as config_file:
     configs.load(config_file)
 
-insert_new_bets_query = configs.get('INSERT_INTO_MATCH_RATINGS').data.replace('\"', '')
 select_upcoming_games_query = configs.get('SELECT_TEAMS_FROM_UPCOMING_GAMES').data.replace('\"', '')
 delete_from_match_ratings_query = configs.get('DELETE_SOME_FROM_MATCH_RATINGS').data.replace('\"', '')
 check_match_ratings_query = configs.get('CHECK_MATCH_RATINGS').data.replace('\"', '')
@@ -43,11 +41,11 @@ def main(args):
         betting_bot = None
 
         if betting_strategy in strategies_list:
-            log_path = f'{LOGS}/{betting_strategy}/main/{season}'
+            log_path = f'{LOGS}/{betting_strategy}/preprocessing/{season}'
             create_dir(log_path)
-            logger = setup_logger('main', f'{log_path}/{today}_main.log')
+            logger = setup_logger('preprocessing', f'{log_path}/{today}_preprocessing.log')
 
-            logger.info(f'Starting bet_bot:main {betting_strategy} {staking_strategy} {bookmaker}')
+            logger.info(f'Starting bet_bot:preprocessing {betting_strategy} {staking_strategy} {bookmaker}')
             
             # process = subprocess.run(f'cd {BETTING_CRAWLER_PATH} && scrapy crawl historical_data', shell=True, capture_output=True, text=True)
 
@@ -81,14 +79,12 @@ def main(args):
             config_path = strategy_factory.get_config(betting_strategy)
             strat_config = read_config(config_path)
 
-            subject = f'Placing bets on {today} for {betting_strategy} strategy with {bookmaker}'
+            subject = f'Preprocessing bets on {today} for {betting_strategy} strategy with {bookmaker}'
             messages = []
 
             consolidated_starting = 0
             total_staked = 0
             placed = 0
-
-            exclusion_list = []
 
             for league, league_id in leagues.items():
                 league_name = strat_config[league]['name']
@@ -180,72 +176,35 @@ def main(args):
                         messages.append(f"Computation for {game[3]} - {game[4]} failed because of an error in {betting_strategy} strategy module")
                         continue
 
-                    manual_exclusion = False
-
-                    if game[3] in exclusion_list:
-                        manual_exclusion = True
-                    
-                    status = get_status(betting_bot, bookmaker, values, game_url, logger, manual_exclusion)
-
-                    if status == 'SUCCESS':
+                    min_stake, max_stake = betting_bot.get_max_min_stake(game_url, values['bet'], values['bet_odds'], logger, today=today)
+                    if values['stake'] >= min_stake and values['flag']:
+                        status = 'SUCCESS'
                         placed += 1
+                    elif not values['flag']:
+                        status = 'EXCLUDED'
+                    else:
+                        status = 'STAKE TOO LOW'
 
                     match betting_strategy:
                         case 'match_ratings':
-                            pre_computed_values = [
-                                game[0], 
-                                game[1], 
-                                game[3], 
-                                game[4], 
-                                season,
-                                league, 
-                                league_name,
-                                game[2],
-                                game[5],
-                                game[6],
-                                None,
-                                None,
-                                None,
-                                bookmaker,
-                                game_url['id'],
-                                home_odds,
-                                draw_odds,
-                                away_odds,
-                                home_proba,
-                                draw_proba,
-                                away_proba,
-                                vig
-                            ]
-
                             flag = values.pop('flag')
 
                             if flag:
                                 curr_bal -= values['stake']
                                 consolidated += values['stake']
                                 total_staked += values['stake']
-
-                            additional_values = [status, curr_bal]
-
-                            final_values = pre_computed_values + list(values.values()) + additional_values
-                            final_values = tuple(final_values)
                         case _:
-                            final_values = ()
+                            logger.error('This betting strategy has not been configured')
                     
                     strat_config[league]['bankroll'] = curr_bal
 
-                    bets.append(final_values)
-
                     logger.info(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}")
                     messages.append(f"{game[3]} - {game[4]}: Bet: {values['bet']} | Odds: {values['bet_odds']} | Stake: ${values['stake']} | Status: {status}\n")
-
-                # strat_config[league]['bankroll'] -= consolidated
 
                 messages.append(f"Amount wagered for {league_name}: ${consolidated:.2f}")
                 logger.info(f"Amount wagered for {league_name}: ${consolidated:.2f}")
                 messages.append(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']:.2f}\n")
                 logger.info(f"Final bankroll for {league_name}: ${strat_config[league]['bankroll']:.2f}")
-            
-            update_config(strat_config, config_path)
 
             if len(bets) > 0:
                 final_bk = consolidated_starting-total_staked
@@ -257,11 +216,9 @@ def main(args):
                 logger.info(f"Total amount wagered: ${total_staked:.2f}")
                 logger.info(f"Consolidated starting bankroll: ${consolidated_starting:.2f}")
                 logger.info(f"Consolidated ending bankroll: ${final_bk:.2f}")
-
-                execute_many(insert_new_bets_query, bets)
             
-            messages.append(f'Total: {placed} bet(s) placed\n')
-            logger.info(f'Total: {placed} bet(s) placed')
+            messages.append(f'Total: {placed} bet(s) preprocessed\n')
+            logger.info(f'Total: {placed} bet(s) preprocessed')
             
             send_email(messages, subject, logger)
         else:
@@ -280,32 +237,6 @@ def main(args):
         if logged_in and betting_bot:
             logger.info('Logging out.')
             betting_bot.logout(logger)
-
-def get_status(betting_bot: BettingBot, bookmaker, values, game_url, logger, manual_exclusion=False):
-    min_stake, max_stake = betting_bot.get_max_min_stake(game_url, values['bet'], values['bet_odds'], logger, today=today)
-    if values['stake'] >= min_stake and values['flag'] and not manual_exclusion:
-        betting_bot.simulate_human_behavior() 
-        curr_bal = betting_bot.check_balance(logger, today=today) 
-        if curr_bal > values['stake']:
-            betting_bot.simulate_human_behavior()
-
-            if values['stake'] > max_stake:
-                logger.info(f"Original stake of ${values['stake']} too high as per {bookmaker} limits. Updating to ${max_stake}")
-                values['stake'] = max_stake
-
-            success = betting_bot.place_bet(values['bet_odds'], values['stake'], values['bet'], game_url, min_stake, logger)
-            if success:
-                status = 'SUCCESS'
-        else:
-            raise ValueError(f"Balance of ${curr_bal} too low for stake ${values['stake']}")
-    elif not manual_exclusion:
-        status = 'MANUALLY EXCLUDED'
-    elif not values['flag']:
-        status = 'EXCLUDED'
-    else:
-        status = 'STAKE TOO LOW'
-
-    return status
 
 if __name__ == '__main__':
     args = args_parser() 

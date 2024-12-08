@@ -123,7 +123,7 @@ class MatchRatingsStrategy(Strategy):
                 'bet_odds': self.bet_odds,
                 'value': self.value,
                 'stake': round(self.stake, 1),
-                'flag': True if (self.bet == 'home' and (0 < self.value < 1) and self.stake > 1) else False
+                'flag': True if (self.bet == 'home' and (0 < self.value) and self.stake > 1) else False
             }
         except Exception as e:
             e_type, e_object, e_traceback = sys.exc_info()
