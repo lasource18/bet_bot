@@ -73,6 +73,7 @@ class MatchRatingsStrategy(Strategy):
             self.bet_odds = self.home_odds if self.bet == 'home' else (self.away_odds if self.bet == 'away' else self.draw_odds)
             self.value = max(self.hv, self.dv, self.av)
             self.stake = max(self.h, self.d, self.a, 0)
+            self.flag = True if (self.bet == 'home' and (self.value > 0) and self.stake > 1) else False
 
             logger.info(
                 f"""{betting_strategy}:
@@ -99,6 +100,8 @@ class MatchRatingsStrategy(Strategy):
                 Draw Stake: {self.d}
                 Away Win Stake: {self.a}
 
+                Flag: {self.flag}
+
                 Pre-bet BK: ${self.strat_config[self.league]['bankroll']:.2f}
                 
                 Bet: {self.bet}""")
@@ -123,7 +126,7 @@ class MatchRatingsStrategy(Strategy):
                 'bet_odds': self.bet_odds,
                 'value': self.value,
                 'stake': round(self.stake, 1),
-                'flag': True if (self.bet == 'home' and (0 < self.value) and self.stake > 1) else False
+                'flag': self.flag
             }
         except Exception as e:
             e_type, e_object, e_traceback = sys.exc_info()

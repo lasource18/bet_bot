@@ -6,6 +6,7 @@ src/bet_bot.egg-info/entry_points.txt
 src/bet_bot.egg-info/not-zip-safe
 src/bet_bot.egg-info/top_level.txt
 src/bot/__init__.py
+src/bot/batery_win_bot.py
 src/bot/betting_bot.py
 src/bot/betting_bot_factory.py
 src/bot/pinnacle_bot.py

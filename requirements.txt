@@ -2,7 +2,7 @@ appdirs==1.4.4
 attrs==24.2.0
 Automat==24.8.1
 beautifulsoup4==4.12.3
--e git+https://github.com/lasource18/bet_bot.git@d99fd4438fa81fd301fe179657989dbcc53398e5#egg=bet_bot
+-e git+https://github.com/lasource18/bet_bot.git@be46231347ee5b9c4f5b5a94c25d7a667930b56e#egg=bet_bot
 certifi==2024.7.4
 cffi==1.17.0
 charset-normalizer==3.3.2

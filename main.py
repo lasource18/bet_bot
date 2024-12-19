@@ -219,7 +219,7 @@ def main(args):
 
                             flag = values.pop('flag')
 
-                            if flag:
+                            if flag and not manual_exclusion:
                                 curr_bal -= values['stake']
                                 consolidated += values['stake']
                                 total_staked += values['stake']
@@ -298,10 +298,10 @@ def get_status(betting_bot: BettingBot, bookmaker, values, game_url, logger, man
                 status = 'SUCCESS'
         else:
             raise ValueError(f"Balance of ${curr_bal} too low for stake ${values['stake']}")
-    elif not manual_exclusion:
-        status = 'MANUALLY EXCLUDED'
     elif not values['flag']:
         status = 'EXCLUDED'
+    elif manual_exclusion:
+        status = 'MANUALLY EXCLUDED'
     else:
         status = 'STAKE TOO LOW'
 
