@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/Documents/Trading/Betting/Football/Python/bet_bot/.env
+source /root/bet_bot/.env
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <betting_strategy>"

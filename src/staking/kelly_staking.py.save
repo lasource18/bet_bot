@@ -7,6 +7,7 @@ getcontext().prec = 3
 class KellyStaking(Staking):
     FRAC_KELLY = 0.5
 
+
     def __init__(self, bk, **kwargs) -> None:
         super().__init__(bk)
         self.value = kwargs.get('value', 0)

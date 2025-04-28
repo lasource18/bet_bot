@@ -35,11 +35,3 @@ src/strategies/strategy_factory.py
 src/utils/__init__.py
 src/utils/utils.py
 tests/test.py
-tests/test10.py
-tests/test11.py
-tests/test12.py
-tests/test5.py
-tests/test6.py
-tests/test7.py
-tests/test8.py
-tests/test9.py

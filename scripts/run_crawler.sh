@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/Documents/Trading/Betting/Football/Python/bet_bot/.env
+. /root/bet_bot/.env
 
 # Check if the correct number of arguments is passed
 if [ "$#" -ne 2 ]; then

@@ -3,7 +3,7 @@
 import sys 
 
 from logging import Logger
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from decimal import Decimal, getcontext
 import time
@@ -54,7 +54,7 @@ def main(args):
             create_dir(log_path)
             logger = setup_logger('bet_settler', f'{log_path}/{today}_bet_settler.log')
 
-            logger.info(f'Starting bet_bot: bet_settler {betting_strategy}')
+            logger.info(f'Starting bet_bot for {today}: bet_settler {betting_strategy}')
 
             select_from_match_ratings_query = configs.get('SELECT_FROM_MATCH_RATINGS').data.replace('\"', '')
             update_match_ratings = configs.get('UPDATE_MATCH_RATINGS').data.replace('\"', '')

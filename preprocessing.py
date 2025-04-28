@@ -130,6 +130,8 @@ def main(args):
                     continue
 
                 consolidated = 0
+#		logger.error('Exit')
+#		exit(1)
 
                 for game in games:
                     if game[0] in bets_ids.keys():

@@ -108,7 +108,7 @@ class PinnacleBettingBot(BettingBot):
             games_ids = [game['id'] for game in games if game is not None]
             potentially_missed_games = [{'id': value['id'], 'participants': value['participants'], 'startTime': value['startTime']} for value in data if value['id'] not in games_ids and value['parlayRestriction']=='unique_matchups']
             games.extend(potentially_missed_games)
-        
+#            logger.info(f"Start time: {game['startTime'][:-1]}")
             today_games = [game for game in games if datetime.fromisoformat(game['startTime']).astimezone(ZoneInfo("America/New_York")).strftime('%Y-%m-%d') == today_]
             unique_games = {game['id']: game for game in today_games}
             games_filtered = list(unique_games.values())

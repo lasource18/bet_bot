@@ -1,10 +1,12 @@
 Metadata-Version: 2.1
-Name: bet_bot
+Name: bet-bot
 Version: 1.0.1
 Summary: An automated betting bot.
+Home-page: UNKNOWN
 Author: lasource18
 Author-email: lasource18@outlook.com
 License: BSD-2-Clause
+Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -18,3 +20,6 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
+
+UNKNOWN
+

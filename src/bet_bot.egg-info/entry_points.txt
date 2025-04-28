@@ -2,3 +2,4 @@
 betting_bot_factory = bot.betting_bot_factory:select_betting_bot
 staking_factory = staking.staking_factory:get_stake
 strategy_factory = strategies.strategy_factory:select_strategy
+
